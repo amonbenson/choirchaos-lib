@@ -1,5 +1,5 @@
+import type { TimeSignature } from "../../music/timeSignature.js";
 import type { JsonSerializable, JsonSerializableConstructor } from "../../utils/json.js";
-import type { TimeSignature } from "../../utils/timeSignature.js";
 import { asMeasureReference, type MeasureReference } from "../measure.js";
 import { Direction, type DirectionJson } from "./base.js";
 

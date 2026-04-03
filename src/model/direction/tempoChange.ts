@@ -1,5 +1,5 @@
+import type { Tempo } from "../../music/tempo.js";
 import type { JsonSerializable, JsonSerializableConstructor } from "../../utils/json.js";
-import type { Tempo } from "../../utils/tempo.js";
 import { asMeasureReference, type MeasureReference } from "../measure.js";
 import { Direction, type DirectionJson } from "./base.js";
 

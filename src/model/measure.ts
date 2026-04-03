@@ -1,6 +1,6 @@
+import { asNumbering, compareNumberings, type Numbering } from "../music/numbering.js";
 import { BinarySortedList } from "../utils/binarySearch.js";
 import type { JsonSerializable, JsonSerializableConstructor } from "../utils/json.js";
-import { asNumbering, compareNumberings, type Numbering } from "../utils/numbering.js";
 
 const BrandTypeId: unique symbol = Symbol.for("effect/Brand");
 

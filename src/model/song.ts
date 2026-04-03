@@ -1,4 +1,4 @@
-import type { Numbering } from "../utils/numbering.js";
+import type { Numbering } from "../music/numbering.js";
 import { MeasureList } from "./measure.js";
 
 const BrandTypeId: unique symbol = Symbol.for("effect/Brand");

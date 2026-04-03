@@ -1,6 +1,7 @@
-import type { UrlOrFile } from "../utils/file.js";
-import { compareNumberings } from "../utils/numbering.js";
+import { compareNumberings } from "../music/numbering.js";
 import type Song from "./song.js";
+
+export type UrlOrFile = string | File;
 
 const BrandTypeId: unique symbol = Symbol.for("effect/Brand");
 
