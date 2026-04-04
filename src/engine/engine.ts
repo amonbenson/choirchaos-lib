@@ -9,16 +9,17 @@ import { type BeatFrame, BeatTimeline } from "./beatFrame";
 import { EngineStateError, SongStructureError } from "./errors";
 import { type ResolvedDirection } from "./resolvedDirection";
 
+export type RepeatState = {
+  iteration: number;
+  exiting: boolean;
+};
+
 export default class Engine {
   private readonly emitters = {
     unloaded: new Emitter<void>(),
     ready: new Emitter<void>(),
     error: new Emitter<Error>(),
   } satisfies Emitters;
-
-  readonly onUnload = this.emitters.unloaded.event;
-  readonly onReady = this.emitters.ready.event;
-  readonly onError = this.emitters.error.event;
 
   private updater: Updater;
 
@@ -29,9 +30,22 @@ export default class Engine {
   private songTime = new Property(0);
   private songDuration = new Property(0);
 
+  private currentBeat = new Property<BeatFrame | undefined>(undefined);
+  private repeatState = new Property({
+    iteration: 0,
+    exiting: false,
+  } as RepeatState);
+
+  readonly onUnload = this.emitters.unloaded.event;
+  readonly onReady = this.emitters.ready.event;
+  readonly onError = this.emitters.error.event;
+
   readonly onPlayingChange = this.playing.onChange;
   readonly onSongTimeChange = this.songTime.onChange;
   readonly onSongDurationChange = this.songDuration.onChange;
+
+  readonly onBeatChange = this.currentBeat.onChange;
+  readonly onRepeatStateChange = this.repeatState.onChange;
 
   constructor(updater?: Updater) {
     // Set the updater or use the default internal one at 50 updates per second
@@ -70,6 +84,14 @@ export default class Engine {
 
   public getSongDuration(): number {
     return this.songDuration.get();
+  }
+
+  public getCurrentBeat(): BeatFrame | undefined {
+    return this.currentBeat.get();
+  }
+
+  public getRepeatState(): RepeatState {
+    return this.repeatState.get();
   }
 
   private generateBeatFrames(): void {
@@ -294,6 +316,10 @@ export default class Engine {
   }
 
   private update(delta: number): void {
+
+  }
+
+  seek(): void {
 
   }
 
