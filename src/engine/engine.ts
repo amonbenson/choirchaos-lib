@@ -87,12 +87,32 @@ export default class Engine {
             marker = resolvedDirection;
             break;
           case "repeat":
+            if (resolvedDirection.length < 1) {
+              throw new SongStructureError("Repeat length must be at least 1.", m);
+            }
+
+            if (resolvedDirection.iterations < 2) {
+              throw new SongStructureError("Repeat must have at least 2 iterations.", m);
+            }
+
             repeat = resolvedDirection;
             break;
           case "vamp":
+            if (resolvedDirection.length < 1) {
+              throw new SongStructureError("Vamp length must be at least 1.", m);
+            }
+
+            if (resolvedDirection.exit.type !== "end" && resolvedDirection.exit.every < 1) {
+              throw new SongStructureError("Vamp exit interval must be at least 1.", m);
+            }
+
             vamp = resolvedDirection;
             break;
           case "cut":
+            if (resolvedDirection.length < 1) {
+              throw new SongStructureError("Cut length must be at least 1.", m);
+            }
+
             cut = resolvedDirection;
             break;
         }
@@ -105,9 +125,17 @@ export default class Engine {
         for (const direction of beat.directions) {
           switch (direction.type) {
             case "tempoChange":
+              if (!isFinite(direction.value.bpm) || direction.value.bpm <= 0) {
+                throw new SongStructureError("Tempo BPM must be a positive finite number.", m);
+              }
+
               tempo = direction.value;
               break;
             case "timeSignatureChange":
+              if (direction.value.beats < 1) {
+                throw new SongStructureError("Time signature beat count must be at least 1.", m);
+              }
+
               timeSignature = direction.value;
               break;
           }

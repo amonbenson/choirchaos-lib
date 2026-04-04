@@ -355,6 +355,70 @@ describe("Engine", () => {
       });
     });
 
+    describe("direction validation", () => {
+      function expectStructureError(s: ReturnType<typeof song>): void {
+        const engine = new Engine();
+        let error: Error | undefined;
+
+        engine.onError((err) => {
+          error = err;
+        });
+        engine.load(s);
+
+        expect(error).toBeInstanceOf(SongStructureError);
+      }
+
+      it("rejects a repeat with length < 1", () => {
+        expect.assertions(1);
+        expectStructureError(song(measure([beat()], { type: "repeat", length: 0, iterations: 2 })));
+      });
+
+      it("rejects a repeat with fewer than 2 iterations", () => {
+        expect.assertions(1);
+        expectStructureError(song(measure([beat()], { type: "repeat", length: 1, iterations: 1 })));
+      });
+
+      it("rejects a vamp with length < 1", () => {
+        expect.assertions(1);
+        expectStructureError(song(measure([beat()], { type: "vamp", length: 0, exit: { type: "end" }, safety: false })));
+      });
+
+      it("rejects a vamp with a bar exit interval < 1", () => {
+        expect.assertions(1);
+        expectStructureError(song(measure([beat()], { type: "vamp", length: 1, exit: { type: "bar", every: 0 }, safety: false })));
+      });
+
+      it("rejects a vamp with a beat exit interval < 1", () => {
+        expect.assertions(1);
+        expectStructureError(song(measure([beat()], { type: "vamp", length: 1, exit: { type: "beat", every: 0 }, safety: false })));
+      });
+
+      it("rejects a cut with length < 1", () => {
+        expect.assertions(1);
+        expectStructureError(song(measure([beat()], { type: "cut", length: 0 })));
+      });
+
+      it("rejects a tempo of 0 BPM", () => {
+        expect.assertions(1);
+        expectStructureError(song(measure([beat({ type: "tempoChange", value: { bpm: 0, pulse: QuarterNote } })])));
+      });
+
+      it("rejects a negative tempo", () => {
+        expect.assertions(1);
+        expectStructureError(song(measure([beat({ type: "tempoChange", value: { bpm: -120, pulse: QuarterNote } })])));
+      });
+
+      it("rejects a non-finite tempo", () => {
+        expect.assertions(1);
+        expectStructureError(song(measure([beat({ type: "tempoChange", value: { bpm: Infinity, pulse: QuarterNote } })])));
+      });
+
+      it("rejects a time signature with 0 beats", () => {
+        expect.assertions(1);
+        expectStructureError(song(measure([beat({ type: "timeSignatureChange", value: { beats: 0, denominator: 4 } })])));
+      });
+    });
+
     describe("directions extending past the end of the song", () => {
       it("fires onError for a repeat that exceeds the song length", () => {
         const engine = new Engine();
