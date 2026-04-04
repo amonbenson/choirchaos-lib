@@ -325,6 +325,75 @@ describe("Engine", () => {
       });
     });
 
+    describe("direction propagation", () => {
+      function loadAndGetFrames(...measures: Measure[]): BeatFrame[] {
+        const engine = new Engine();
+        engine.load(song(...measures));
+        return engine.getBeatFrames();
+      }
+
+      it("marker is set on frames within its measure and cleared on the next", () => {
+        // Measure 0 has a marker, measure 1 does not
+        const frames = loadAndGetFrames(
+          measure([beat(), beat()], { type: "marker", value: "Verse" }),
+          measure([beat(), beat()]),
+        );
+
+        expect(frames[0]!.marker?.value).toBe("Verse");
+        expect(frames[1]!.marker?.value).toBe("Verse");
+        expect(frames[2]!.marker).toBeUndefined();
+        expect(frames[3]!.marker).toBeUndefined();
+      });
+
+      it("repeat is active on exactly its span and isRepeatEnd lands on the first frame after", () => {
+        // Repeat of length=2 starting at m=0, song has 4 measures (2 beats each)
+        // Frames: 0-1=m0 | 2-3=m1 | 4-5=m2 | 6-7=m3
+        // Correct: repeat active on m0+m1, expired at start of m2 → frames[4].isRepeatEnd=true
+        // Bottom-of-loop bug: repeat still on frames[4-5], isRepeatEnd never fires within the song
+        // +1 inequality: repeat active through m0-m2, wrong expiry
+        // -2 inequality: repeat clears at start of m1 (too early), isRepeatEnd on frames[2]
+        const frames = loadAndGetFrames(
+          measure([beat(), beat()], { type: "repeat", length: 2, exit: { type: "count", iterations: 2 }, safety: false }),
+          measure([beat(), beat()]),
+          measure([beat(), beat()]),
+          measure([beat(), beat()]),
+        );
+
+        // Repeat active during m=0 and m=1
+        for (const frame of frames.slice(0, 4)) {
+          expect(frame!.repeat).toBeDefined();
+          expect(frame!.isRepeatEnd).toBe(false);
+        }
+
+        // IsRepeatEnd fires on exactly the first frame of m=2, repeat gone
+        expect(frames[4]!.isRepeatEnd).toBe(true);
+        expect(frames[4]!.repeat).toBeUndefined();
+
+        // Subsequent frames of m=2 and m=3 have no repeat or isRepeatEnd
+        for (const frame of frames.slice(5)) {
+          expect(frame!.repeat).toBeUndefined();
+          expect(frame!.isRepeatEnd).toBe(false);
+        }
+      });
+
+      it("cut is active on exactly its span", () => {
+        // Cut of length=1 starting at m=0, song has 3 measures (2 beats each)
+        // Correct: cut active on m=0 only, cleared at start of m=1
+        const frames = loadAndGetFrames(
+          measure([beat(), beat()], { type: "cut", length: 1 }),
+          measure([beat(), beat()]),
+          measure([beat(), beat()]),
+        );
+
+        expect(frames[0]!.cut).toBeDefined();
+        expect(frames[1]!.cut).toBeDefined();
+
+        for (const frame of frames.slice(2)) {
+          expect(frame!.cut).toBeUndefined();
+        }
+      });
+    });
+
     describe("direction validation", () => {
       function expectStructureError(s: ReturnType<typeof song>): void {
         const engine = new Engine();
