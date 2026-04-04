@@ -1,107 +1,75 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { TypedEventEmitter } from "./events.js";
+import { Emitter } from "./events.js";
 
-type TestEvents = {
-  greet: [name: string];
-  count: [value: number];
-  done: [];
-};
-
-describe("TypedEventEmitter", () => {
-  it("calls a registered listener with the correct arguments", () => {
-    const emitter = new TypedEventEmitter<TestEvents>();
+describe("Emitter", () => {
+  it("calls a registered listener with the correct value", () => {
+    const emitter = new Emitter<string>();
     const listener = vi.fn();
 
-    emitter.on("greet", listener);
-    emitter.emit("greet", "Alice");
+    emitter.event(listener);
+    emitter.fire("hello");
 
-    expect(listener).toHaveBeenCalledExactlyOnceWith("Alice");
+    expect(listener).toHaveBeenCalledExactlyOnceWith("hello");
   });
 
-  it("calls multiple listeners for the same event", () => {
-    const emitter = new TypedEventEmitter<TestEvents>();
+  it("calls multiple listeners", () => {
+    const emitter = new Emitter<number>();
     const a = vi.fn();
     const b = vi.fn();
 
-    emitter.on("count", a).on("count", b);
-    emitter.emit("count", 42);
+    emitter.event(a);
+    emitter.event(b);
+    emitter.fire(42);
 
     expect(a).toHaveBeenCalledWith(42);
     expect(b).toHaveBeenCalledWith(42);
   });
 
-  it("does not call a listener after off()", () => {
-    const emitter = new TypedEventEmitter<TestEvents>();
+  it("stops calling a listener after dispose()", () => {
+    const emitter = new Emitter<string>();
     const listener = vi.fn();
 
-    emitter.on("greet", listener);
-    emitter.off("greet", listener);
-    emitter.emit("greet", "Bob");
+    const disposable = emitter.event(listener);
+    disposable.dispose();
+    emitter.fire("ignored");
 
     expect(listener).not.toHaveBeenCalled();
   });
 
-  it("calls a once() listener exactly once", () => {
-    const emitter = new TypedEventEmitter<TestEvents>();
-    const listener = vi.fn();
-
-    emitter.once("count", listener);
-    emitter.emit("count", 1);
-    emitter.emit("count", 2);
-
-    expect(listener).toHaveBeenCalledExactlyOnceWith(1);
-  });
-
-  it("returns true from emit() when listeners exist", () => {
-    const emitter = new TypedEventEmitter<TestEvents>();
-
-    emitter.on("done", vi.fn());
-
-    expect(emitter.emit("done")).toBe(true);
-  });
-
-  it("returns false from emit() when no listeners exist", () => {
-    const emitter = new TypedEventEmitter<TestEvents>();
-
-    expect(emitter.emit("done")).toBe(false);
-  });
-
-  it("tracks listenerCount correctly", () => {
-    const emitter = new TypedEventEmitter<TestEvents>();
+  it("disposing one listener does not affect others", () => {
+    const emitter = new Emitter<number>();
     const a = vi.fn();
     const b = vi.fn();
 
-    expect(emitter.listenerCount("greet")).toBe(0);
+    const disposableA = emitter.event(a);
+    emitter.event(b);
+    disposableA.dispose();
+    emitter.fire(1);
 
-    emitter.on("greet", a).on("greet", b);
-    expect(emitter.listenerCount("greet")).toBe(2);
-
-    emitter.off("greet", a);
-    expect(emitter.listenerCount("greet")).toBe(1);
+    expect(a).not.toHaveBeenCalled();
+    expect(b).toHaveBeenCalledWith(1);
   });
 
-  it("removeAllListeners() removes listeners for a specific event", () => {
-    const emitter = new TypedEventEmitter<TestEvents>();
+  it("disposing twice is a no-op", () => {
+    const emitter = new Emitter<void>();
     const listener = vi.fn();
 
-    emitter.on("greet", listener).on("count", listener);
-    emitter.removeAllListeners("greet");
-    emitter.emit("greet", "Carol");
-    emitter.emit("count", 7);
+    const disposable = emitter.event(listener);
+    disposable.dispose();
+    disposable.dispose();
+    emitter.fire();
 
-    expect(listener).toHaveBeenCalledExactlyOnceWith(7);
+    expect(listener).not.toHaveBeenCalled();
   });
 
-  it("removeAllListeners() with no argument removes all listeners", () => {
-    const emitter = new TypedEventEmitter<TestEvents>();
+  it("emitter.dispose() silences all listeners", () => {
+    const emitter = new Emitter<string>();
     const listener = vi.fn();
 
-    emitter.on("greet", listener).on("count", listener).on("done", listener);
-    emitter.removeAllListeners();
-    emitter.emit("greet", "Dave");
-    emitter.emit("count", 0);
-    emitter.emit("done");
+    emitter.event(listener);
+    emitter.dispose();
+    emitter.fire("ignored");
 
     expect(listener).not.toHaveBeenCalled();
   });

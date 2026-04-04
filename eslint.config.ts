@@ -78,6 +78,15 @@ export default tseslint.config(
 
       // Always require curly braces for if/else/for/while/do — no braceless one-liners.
       "curly": ["error", "all"],
+
+      // Prefer undefined over null for absent values.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Literal[value=null]",
+          message: "Use undefined instead of null.",
+        },
+      ],
     },
   },
 );

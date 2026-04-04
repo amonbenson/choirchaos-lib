@@ -1,75 +1,31 @@
-type EventMap = Record<string, unknown[]>;
+export interface Disposable {
+  dispose(): void;
+}
 
-type Listener<TArgs extends unknown[]> = (...args: TArgs) => void;
+export type Event<T> = (listener: (value: T) => void) => Disposable;
 
-export class TypedEventEmitter<TEvents extends EventMap> {
-  private listeners = new Map<keyof TEvents, Set<Listener<unknown[]>>>();
+export type Emitters = Record<string, Emitter<any>>;
 
-  on<TEvent extends keyof TEvents>(
-    event: TEvent,
-    listener: Listener<TEvents[TEvent]>,
-  ): this {
-    let set = this.listeners.get(event);
+export class Emitter<T> {
+  private _listeners = new Set<(value: T) => void>();
 
-    if (!set) {
-      set = new Set();
-      this.listeners.set(event, set);
-    }
+  readonly event: Event<T> = (listener) => {
+    this._listeners.add(listener);
 
-    set.add(listener as Listener<unknown[]>);
-
-    return this;
-  }
-
-  off<TEvent extends keyof TEvents>(
-    event: TEvent,
-    listener: Listener<TEvents[TEvent]>,
-  ): this {
-    this.listeners.get(event)?.delete(listener as Listener<unknown[]>);
-
-    return this;
-  }
-
-  once<TEvent extends keyof TEvents>(
-    event: TEvent,
-    listener: Listener<TEvents[TEvent]>,
-  ): this {
-    const wrapper: Listener<TEvents[TEvent]> = (...args) => {
-      this.off(event, wrapper);
-      listener(...args);
+    return {
+      dispose: () => {
+        this._listeners.delete(listener);
+      },
     };
+  };
 
-    return this.on(event, wrapper);
+  fire(value: T): void {
+    for (const listener of this._listeners) {
+      listener(value);
+    }
   }
 
-  emit<TEvent extends keyof TEvents>(
-    event: TEvent,
-    ...args: TEvents[TEvent]
-  ): boolean {
-    const set = this.listeners.get(event);
-
-    if (!set || set.size === 0) {
-      return false;
-    }
-
-    for (const listener of set) {
-      listener(...args);
-    }
-
-    return true;
-  }
-
-  listenerCount(event: keyof TEvents): number {
-    return this.listeners.get(event)?.size ?? 0;
-  }
-
-  removeAllListeners(event?: keyof TEvents): this {
-    if (event !== undefined) {
-      this.listeners.delete(event);
-    } else {
-      this.listeners.clear();
-    }
-
-    return this;
+  dispose(): void {
+    this._listeners.clear();
   }
 }
