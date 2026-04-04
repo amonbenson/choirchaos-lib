@@ -2,7 +2,8 @@ import { type Cut, type Marker, type MeasureDirection, type Repeat } from "@/mod
 import { type MeasureNumber } from "@/model/measure";
 import { type Song } from "@/model/song";
 import { DefaultTempo, DefaultTimeSignature, nextSequentialNumbering } from "@/music";
-import { Emitter, type Emitters } from "@/utils/events";
+import { Emitter, type Emitters, type Event } from "@/utils/events";
+import { SetIntervalUpdater, type Updater } from "@/utils/updater";
 
 import { type BeatFrame, BeatTimeline } from "./beatFrame";
 import { EngineStateError, SongStructureError } from "./errors";
@@ -13,23 +14,89 @@ export default class Engine {
     unloaded: new Emitter<void>(),
     ready: new Emitter<void>(),
     error: new Emitter<Error>(),
+
+    playingChanged: new Emitter<boolean>(),
+    songTimeChanged: new Emitter<number>(),
+    songDurationChanged: new Emitter<number>(),
   } satisfies Emitters;
-
-  private song?: Song;
-
-  private beats: BeatTimeline = new BeatTimeline();
-  private currentBeatIndex: number = 0;
 
   readonly onUnloaded = this.emitters.unloaded.event;
   readonly onReady = this.emitters.ready.event;
   readonly onError = this.emitters.error.event;
 
+  private updater: Updater;
+
+  private song?: Song;
+  private beats: BeatTimeline = new BeatTimeline();
+
+  private playing: boolean = false;
+  private songTime: number = 0;
+  private songDuration: number = 0;
+
+  constructor(updater?: Updater) {
+    // Set the update or use the default internal one at 50 updates per second
+    this.updater = updater ?? new SetIntervalUpdater({
+      interval: 1 / 50,
+      maximumLag: 5.0,
+    });
+
+    // Register clock callback
+    this.updater.onTick((delta) => {
+      if (this.isReady() && this.isPlaying()) {
+        this.update(delta);
+      }
+    });
+  }
+
   public isReady(): boolean {
     return Boolean(this.song);
   }
 
+  public getSong(): Song | undefined {
+    return this.song;
+  }
+
   public getBeatFrames(): BeatFrame[] {
     return this.beats.items();
+  }
+
+  private setPlaying(value: boolean): void {
+    if (this.playing === value) {
+      return;
+    }
+
+    this.playing = value;
+    this.emitters.playingChanged.fire(value);
+  }
+
+  public isPlaying(): boolean {
+    return this.playing;
+  }
+
+  private setSongTime(value: number): void {
+    if (this.songTime === value) {
+      return;
+    }
+
+    this.songTime = value;
+    this.emitters.songTimeChanged.fire(value);
+  }
+
+  public getSongTime(): number {
+    return this.songTime;
+  }
+
+  private setSongDuration(value: number): void {
+    if (this.songDuration === value) {
+      return;
+    }
+
+    this.songDuration = value;
+    this.emitters.songDurationChanged.fire(value);
+  }
+
+  public getSongDuration(): number {
+    return this.songDuration;
   }
 
   private generateBeatFrames(): void {
@@ -205,15 +272,24 @@ export default class Engine {
       throw new SongStructureError("Cut cannot persist past the end of the song.", cut.measureIndex);
     }
 
-    // Store the annotated beats and reset the index
+    // Store all data
     this.beats = new BeatTimeline(beatFrames);
-    this.currentBeatIndex = 0;
+
+    // Reset the playback state
+    this.setPlaying(false);
+    this.setSongTime(0);
+    this.setSongDuration(time);
+
+    // TODO: Set playing and seek to the previous location
   }
 
   private reset(): void {
     this.song = undefined;
     this.beats.clear();
-    this.currentBeatIndex = 0;
+
+    this.setPlaying(false);
+    this.setSongTime(0);
+    this.setSongDuration(0);
   }
 
   load(song: Song): void {
@@ -226,7 +302,6 @@ export default class Engine {
       this.song = song;
 
       this.generateBeatFrames();
-      this.currentBeatIndex = 0;
 
       this.emitters.ready.fire();
     } catch (err) {
@@ -243,5 +318,17 @@ export default class Engine {
 
     this.reset();
     this.emitters.unloaded.fire();
+  }
+
+  private update(delta: number): void {
+
+  }
+
+  play(): void {
+
+  }
+
+  pause(): void {
+
   }
 }
