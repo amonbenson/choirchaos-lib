@@ -1,4 +1,4 @@
-import type { NoteValue } from "./noteValue.js";
+import type { NoteValue } from "./noteValue";
 
 export type Tempo = {
   bpm: number;

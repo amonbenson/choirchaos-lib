@@ -1,19 +1,22 @@
-import { compareNumberings } from "../music/numbering.js";
-import type Song from "./song.js";
+import { Branded } from "@/utils/brand";
+import { UrlOrFile } from "@/utils/file";
 
-export type UrlOrFile = string | File;
+import { Song } from "./song";
 
-const BrandTypeId: unique symbol = Symbol.for("effect/Brand");
+export type ShowId = Branded<string, "ShowId">;
 
-type ShowId = string & { readonly [BrandTypeId]: { readonly ShowId: "ShowId" } };
+export type Show = {
+  readonly id: string;
+  title: string;
+  thumbnail?: UrlOrFile;
+  songs: Song[];
+};
 
-export default class Show {
-  constructor(
-    public readonly id: ShowId,
-    public title: string,
-    public thumbnail?: UrlOrFile,
-    public songs: Song[] = [],
-  ) {
-    this.songs.sort((a, b) => compareNumberings(a.number, b.number));
-  }
+export function createShow(id: ShowId, title: string = "", thumbnail?: UrlOrFile): Show {
+  return {
+    id,
+    title,
+    thumbnail,
+    songs: [],
+  };
 }

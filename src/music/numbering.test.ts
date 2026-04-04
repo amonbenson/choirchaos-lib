@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { compareNumberings } from "./numbering.js";
+import { compareNumberings } from "./numbering";
 
 describe("compareMeasures", () => {
   it("returns 0 for equal measures", () => {

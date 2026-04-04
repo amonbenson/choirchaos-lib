@@ -5,7 +5,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsup",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -17,6 +17,7 @@
     "eslint": "^10.0.3",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "jiti": "^2.6.1",
+    "tsup": "^8.5.1",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.0.0",
     "vitest": "^4.1.0"

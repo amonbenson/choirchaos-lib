@@ -1,8 +1,8 @@
+import { Branded } from "@/utils/brand";
+
 const NUMBERING_REGEX = /^(\d+)?([a-zA-Z])?(-(\d+))?$/;
 
-const BrandTypeId: unique symbol = Symbol.for("effect/Brand");
-
-export type Numbering = string & { readonly [BrandTypeId]: { readonly Numbering: "Numbering" } };
+export type Numbering = Branded<string, "Numbering">;
 
 export function isNumbering(value: unknown): value is Numbering {
   return typeof value === "string" && !!value && NUMBERING_REGEX.test(value);
