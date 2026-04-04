@@ -51,8 +51,33 @@ export default class Engine {
     let vamp: ResolvedDirection<Vamp> | undefined = undefined;
     let cut: ResolvedDirection<Cut> | undefined = undefined;
 
+    let isRepeatEnd = false;
+
     for (let m = 0; m < this.song.measures.length; m++) {
       const measure = this.song.measures[m];
+
+      // Clear directions
+      if (marker) {
+        marker = undefined;
+      }
+
+      if (repeat && m - repeat.measureIndex >= repeat.length) {
+        repeat = undefined;
+        isRepeatEnd = true; // End of repeat
+      }
+
+      if (vamp && m - vamp.measureIndex >= vamp.length) {
+        vamp = undefined;
+        isRepeatEnd = true; // End of vamp also triggers a repeat
+      }
+
+      if (cut && m - cut.measureIndex >= cut.length) {
+        cut = undefined;
+      }
+
+      if (measure.beats.length < 1) {
+        throw new SongStructureError("Measure must contain at least one beat.", m);
+      }
 
       // Handle measure directions
       for (const direction of measure.directions) {
@@ -128,6 +153,24 @@ export default class Engine {
           }
         }
 
+        // Check for vamp exit locations
+        let isVampExit = false;
+        if (vamp) {
+          switch (vamp.exit.type) {
+            case "bar":
+              // Exit every nth bar on the first beat
+              isVampExit = ((m - vamp.measureIndex) % vamp.exit.every === 0) && b === 0;
+              break;
+            case "beat":
+              // Exit every nth beat
+              isVampExit = b % vamp.exit.every === 0;
+              break;
+            case "end":
+              // Exit only at the end. This is handled by the clear-directions-block above
+              break;
+          }
+        }
+
         // Beat duration can be derived directly from the tempo in beats per second
         const duration = 60 / tempo.bpm;
 
@@ -141,7 +184,12 @@ export default class Engine {
           repeat,
           vamp,
           cut,
+          isRepeatEnd,
+          isVampExit,
         });
+
+        // Clear repeat end flag
+        isRepeatEnd = false;
 
         // Increment time
         time += duration;
@@ -149,23 +197,6 @@ export default class Engine {
 
       // Increment the measure number
       measureNumber = nextSequentialNumbering(measureNumber);
-
-      // Clear past directions
-      if (marker) {
-        marker = undefined;
-      }
-
-      if (repeat && m - repeat.measureIndex >= repeat.length) {
-        repeat = undefined;
-      }
-
-      if (vamp && m - vamp.measureIndex >= vamp.length) {
-        vamp = undefined;
-      }
-
-      if (cut && m - cut.measureIndex >= cut.length) {
-        cut = undefined;
-      }
     }
 
     // Make sure that all length-restricted directions persist past the end of the song

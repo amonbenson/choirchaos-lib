@@ -17,6 +17,9 @@ export type BeatFrame = {
   repeat?: ResolvedDirection<Repeat>;
   vamp?: ResolvedDirection<Vamp>;
   cut?: ResolvedDirection<Cut>;
+
+  isRepeatEnd: boolean;
+  isVampExit: boolean;
 };
 
 export class BeatTimeline extends BinarySortedList<BeatFrame> {

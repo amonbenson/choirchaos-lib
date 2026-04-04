@@ -349,8 +349,8 @@ describe("Engine", () => {
         expect(frames).toHaveLength(0);
       });
 
-      it("produces no beat frames for measures with no beats", () => {
-        const frames = loadAndGetFrames(measure([]), measure([]));
+      it("produces no beat frames for a song with no measures", () => {
+        const frames = loadAndGetFrames();
         expect(frames).toHaveLength(0);
       });
     });
@@ -367,6 +367,11 @@ describe("Engine", () => {
 
         expect(error).toBeInstanceOf(SongStructureError);
       }
+
+      it("rejects a measure with no beats", () => {
+        expect.assertions(1);
+        expectStructureError(song(measure([])));
+      });
 
       it("rejects a repeat with length < 1", () => {
         expect.assertions(1);
