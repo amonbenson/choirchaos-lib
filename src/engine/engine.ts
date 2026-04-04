@@ -8,18 +8,12 @@ import { type BeatFrame, BeatTimeline } from "./beatFrame";
 import { EngineStateError, SongStructureError } from "./errors";
 import { type ResolvedDirection } from "./resolvedDirection";
 
-export type EngineOptions = {
-  markerDuration: "beat" | "bar";
-};
-
 export default class Engine {
   private readonly emitters = {
     unloaded: new Emitter<void>(),
     ready: new Emitter<void>(),
     error: new Emitter<Error>(),
   } satisfies Emitters;
-
-  private options: EngineOptions;
 
   private song?: Song;
 
@@ -29,13 +23,6 @@ export default class Engine {
   readonly onUnloaded = this.emitters.unloaded.event;
   readonly onReady = this.emitters.ready.event;
   readonly onError = this.emitters.error.event;
-
-  constructor(options: Partial<EngineOptions> = {}) {
-    this.options = {
-      markerDuration: "bar",
-      ...options,
-    };
-  }
 
   public isReady(): boolean {
     return Boolean(this.song);
