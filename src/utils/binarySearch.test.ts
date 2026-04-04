@@ -11,17 +11,17 @@ describe("binarySearch", () => {
   it("finds the correct element with default parameters", () => {
     const options = { comparator };
 
-    // test around lower bound
+    // Test around lower bound
     expect(binarySearch(items, { p: 9 }, options)).toEqual(0);
     expect(binarySearch(items, { p: 10 }, options)).toEqual(0);
     expect(binarySearch(items, { p: 11 }, options)).toEqual(1);
 
-    // test around mid bound
+    // Test around mid bound
     expect(binarySearch(items, { p: 19 }, options)).toEqual(1);
     expect(binarySearch(items, { p: 20 }, options)).toEqual(1);
     expect(binarySearch(items, { p: 21 }, options)).toEqual(2);
 
-    // test around high bound
+    // Test around high bound
     expect(binarySearch(items, { p: 29 }, options)).toEqual(2);
     expect(binarySearch(items, { p: 30 }, options)).toEqual(2);
     expect(binarySearch(items, { p: 31 }, options)).toEqual(2);
@@ -33,17 +33,17 @@ describe("binarySearch", () => {
       inclusive: false,
     };
 
-    // test around lower bound
+    // Test around lower bound
     expect(binarySearch(items, { p: 9 }, options)).toEqual(0);
     expect(binarySearch(items, { p: 10 }, options)).toEqual(1);
     expect(binarySearch(items, { p: 11 }, options)).toEqual(1);
 
-    // test around mid bound
+    // Test around mid bound
     expect(binarySearch(items, { p: 19 }, options)).toEqual(1);
     expect(binarySearch(items, { p: 20 }, options)).toEqual(2);
     expect(binarySearch(items, { p: 21 }, options)).toEqual(2);
 
-    // test around high bound
+    // Test around high bound
     expect(binarySearch(items, { p: 29 }, options)).toEqual(2);
     expect(binarySearch(items, { p: 30 }, options)).toEqual(2);
     expect(binarySearch(items, { p: 31 }, options)).toEqual(2);
@@ -55,12 +55,12 @@ describe("binarySearch", () => {
       extend: false,
     };
 
-    // test around lower bound
+    // Test around lower bound
     expect(binarySearch(items, { p: 9 }, options)).toEqual(-1);
     expect(binarySearch(items, { p: 10 }, options)).toEqual(0);
     expect(binarySearch(items, { p: 11 }, options)).toEqual(1);
 
-    // test around high bound
+    // Test around high bound
     expect(binarySearch(items, { p: 29 }, options)).toEqual(2);
     expect(binarySearch(items, { p: 30 }, options)).toEqual(2);
     expect(binarySearch(items, { p: 31 }, options)).toEqual(-1);
@@ -72,17 +72,17 @@ describe("binarySearch", () => {
       direction: "backward",
     };
 
-    // test around lower bound
+    // Test around lower bound
     expect(binarySearch(items, { p: 9 }, options)).toEqual(0);
     expect(binarySearch(items, { p: 10 }, options)).toEqual(0);
     expect(binarySearch(items, { p: 11 }, options)).toEqual(0);
 
-    // test around mid bound
+    // Test around mid bound
     expect(binarySearch(items, { p: 19 }, options)).toEqual(0);
     expect(binarySearch(items, { p: 20 }, options)).toEqual(1);
     expect(binarySearch(items, { p: 21 }, options)).toEqual(1);
 
-    // test around high bound
+    // Test around high bound
     expect(binarySearch(items, { p: 29 }, options)).toEqual(1);
     expect(binarySearch(items, { p: 30 }, options)).toEqual(2);
     expect(binarySearch(items, { p: 31 }, options)).toEqual(2);
@@ -167,6 +167,21 @@ describe("BinarySortedList", () => {
     ]);
     expect(list.search({ p: 4 })).toEqual({ p: 4 });
     expect(list.search({ p: 6 })).toEqual({ p: 5 });
+  });
+
+  it("clears all items", () => {
+    const list = new BinarySortedList([1, 3, 5]);
+    list.clear();
+    expect(list.items()).toEqual([]);
+    expect(list.first()).toBeUndefined();
+    expect(list.last()).toBeUndefined();
+  });
+
+  it("allows inserting after clear", () => {
+    const list = new BinarySortedList([1, 3, 5]);
+    list.clear();
+    list.insert(2);
+    expect(list.items()).toEqual([2]);
   });
 
   it("sorts items after construction", () => {

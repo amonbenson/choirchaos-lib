@@ -20,7 +20,7 @@ export function parseNumbering(value: Numbering): [number, string, number] {
   value = asNumbering(value);
   const match = value.match(NUMBERING_REGEX) as RegExpMatchArray;
 
-  // group 1: number, group 2: letter, group 3: /, group 4: iterations
+  // Group 1: number, group 2: letter, group 3: /, group 4: iterations
   const num = parseInt(match[1] ?? "0", 10);
   const letter = match[2] ?? "";
   const iter = parseInt(match[4] ?? "0", 10);

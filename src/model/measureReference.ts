@@ -12,10 +12,10 @@ export function asMeasureReference([measure, beat]: [unknown, unknown]): Measure
 export function compareMeasureReferences(a: MeasureReference, b: MeasureReference): number {
   const nrDiff = compareNumberings(a[0], b[0]);
   if (nrDiff !== 0) {
-    // compare by measure numbers
+    // Compare by measure numbers
     return nrDiff;
   } else {
-    // compare by beats
+    // Compare by beats
     return a[1] - b[1];
   }
 }

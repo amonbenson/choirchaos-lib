@@ -15,7 +15,7 @@ export function binarySearch<K, T>(list: T[], key: K, options: BinarySearchOptio
     upperBoundReturnsLength = false,
   } = options;
 
-  // check if list is invalid or empty
+  // Check if list is invalid or empty
   if (!Array.isArray(list)) {
     throw new TypeError(`Cannot insert into type ${typeof list}`);
   }
@@ -24,7 +24,7 @@ export function binarySearch<K, T>(list: T[], key: K, options: BinarySearchOptio
     return -1;
   }
 
-  // check lower bound
+  // Check lower bound
   const cmpLow = comparator(key, list[0]!);
   if (cmpLow < 0) {
     return extend ? 0 : -1;
@@ -38,7 +38,7 @@ export function binarySearch<K, T>(list: T[], key: K, options: BinarySearchOptio
     }
   }
 
-  // check upper bound
+  // Check upper bound
   const cmpHigh = comparator(key, list[list.length - 1]!);
   if (cmpHigh > 0) {
     return extend ? list.length - 1 : (upperBoundReturnsLength ? list.length : -1);
@@ -52,20 +52,20 @@ export function binarySearch<K, T>(list: T[], key: K, options: BinarySearchOptio
     }
   }
 
-  // search the list for an exact match
+  // Search the list for an exact match
   let low = 0;
   let high = list.length - 1;
   while (low <= high) {
     const mid = low + Math.floor((high - low) / 2);
     const cmp = comparator(key, list[mid]!);
 
-    // validate the comparator result
+    // Validate the comparator result
     if (typeof cmp !== "number" || isNaN(cmp)) {
       throw new Error(`Comparator returned an invalid result: ${cmp}`);
     }
 
     if (cmp === 0) {
-      // exact match found. Return mid or next/previous item depending on the direction
+      // Exact match found. Return mid or next/previous item depending on the direction
       if (inclusive) {
         return mid;
       } else if (direction === "forward") {
@@ -74,15 +74,15 @@ export function binarySearch<K, T>(list: T[], key: K, options: BinarySearchOptio
         return mid > 0 ? mid - 1 : -1;
       }
     } else if (cmp < 0) {
-      // discard upper half
+      // Discard upper half
       high = mid - 1;
     } else {
-      // discard lower half
+      // Discard lower half
       low = mid + 1;
     }
   }
 
-  // no exact match found.
+  // No exact match found.
   // "low" now refers to the element after the key and "high" to the one before.
   // the bounds have already been checked, so we can return the appropriate element depending on the direction
   if (direction === "forward") {
@@ -101,7 +101,7 @@ export function insertSorted<T>(list: T[], item: T, options: InsertSortedOptions
     comparator = (a, b) => Number(a) - Number(b),
   } = options;
 
-  // check if list is invalid or empty
+  // Check if list is invalid or empty
   if (!Array.isArray(list)) {
     throw new TypeError(`Cannot insert into type ${typeof list}`);
   }
@@ -113,7 +113,7 @@ export function insertSorted<T>(list: T[], item: T, options: InsertSortedOptions
 
   let pos = undefined;
 
-  // check lower bound
+  // Check lower bound
   const cmpLow = comparator(item, list[0]!);
   if (cmpLow < 0) {
     pos = 0;
@@ -121,13 +121,13 @@ export function insertSorted<T>(list: T[], item: T, options: InsertSortedOptions
     pos = 1;
   }
 
-  // check upper bound
+  // Check upper bound
   const cmpHigh = comparator(item, list[list.length - 1]!);
   if (cmpHigh >= 0) {
     pos = list.length;
   }
 
-  // lookup position via binary search
+  // Lookup position via binary search
   if (pos === undefined) {
     pos = binarySearch(list, item, {
       comparator,
@@ -208,10 +208,14 @@ export class BinarySortedList<T> {
   searchRange<K = T>(from: K, to: K, options: BinarySearchOptions<K, T> = {}): T[] {
     const [a, b] = this.searchIndexRange(from, to, options);
     if (a === -1 && b === 1) {
-      return this._items.slice(0, 1); // edge case, where slice(-1, 1) returns no items, although it should return the first item
+      return this._items.slice(0, 1); // Edge case, where slice(-1, 1) returns no items, although it should return the first item
     }
 
     return this._items.slice(a, b);
+  }
+
+  clear(): void {
+    this._items = [];
   }
 
   sort(): void {

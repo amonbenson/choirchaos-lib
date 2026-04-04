@@ -1,6 +1,8 @@
 import { Song } from "@/model/song";
 import { Emitter, Emitters } from "@/utils/events";
 
+import { BeatList } from "./beat";
+
 export default class Engine {
   private readonly emitters = {
     unloaded: new Emitter<void>(),
@@ -9,17 +11,18 @@ export default class Engine {
   } satisfies Emitters;
 
   private song?: Song;
+  private beats: BeatList = new BeatList();
 
   readonly onUnloaded = this.emitters.unloaded.event;
   readonly onReady = this.emitters.ready.event;
   readonly onError = this.emitters.error.event;
 
   public isReady(): boolean {
-    return !!this.song;
+    return Boolean(this.song);
   }
 
   load(song: Song): void {
-    // onload previous song
+    // Unload previous song
     if (this.isReady()) {
       this.unload();
     }
@@ -40,7 +43,10 @@ export default class Engine {
       return;
     }
 
+    // Clear all data
     this.song = undefined;
+    this.beats.clear();
+
     this.emitters.unloaded.fire();
   }
 }

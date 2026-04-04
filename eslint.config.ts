@@ -18,10 +18,10 @@ export default defineConfig(
     files: ["src/**/*.test.ts"],
   },
 
-  // disable the legacy core rules to avoid conflicts
+  // Disable the legacy core rules to avoid conflicts
   stylistic.configs["disable-legacy"],
 
-  // setup basic stylistic configuration
+  // Setup basic stylistic configuration
   stylistic.configs.customize({
     indent: 2,
     quotes: "double",
@@ -78,6 +78,12 @@ export default defineConfig(
 
       // Always require curly braces for if/else/for/while/do - no braceless one-liners.
       "curly": ["error", "all"],
+
+      // Comments must start with an uppercase letter.
+      "capitalized-comments": ["error", "always", {
+        ignoreInlineComments: true,
+        ignoreConsecutiveComments: true,
+      }],
 
       // Prefer undefined over null for absent values.
       "no-restricted-syntax": [
