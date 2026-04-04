@@ -1,5 +1,6 @@
 import { type Cut, type Marker, type MeasureDirection, type Repeat } from "@/model/direction";
 import { type MeasureNumber } from "@/model/measure";
+import { compareMeasureReferences, type MeasureReference } from "@/model/measureReference";
 import { type Song } from "@/model/song";
 import { DefaultTempo, DefaultTimeSignature, nextSequentialNumbering } from "@/music";
 import { Emitter, type Emitters, Property } from "@/utils/events";
@@ -30,6 +31,7 @@ export default class Engine {
   private songTime = new Property(0);
   private songDuration = new Property(0);
 
+  private currentBeatIndex = new Property(0);
   private currentBeat = new Property<BeatFrame | undefined>(undefined);
   private repeatState = new Property({
     iteration: 0,
@@ -59,6 +61,11 @@ export default class Engine {
       if (this.isReady() && this.isPlaying()) {
         this.update(delta);
       }
+    });
+
+    // Link the current beat to the beat index
+    this.currentBeatIndex.onChange((index) => {
+      this.currentBeat.set(this.beats.items()[index]);
     });
   }
 
@@ -92,6 +99,36 @@ export default class Engine {
 
   public getRepeatState(): RepeatState {
     return this.repeatState.get();
+  }
+
+  public setVampExiting(value: boolean): void {
+    const beat = this.currentBeat.get();
+    if (!beat) {
+      throw new EngineStateError("No current beat.");
+    }
+
+    if (!beat.repeat) {
+      throw new EngineStateError("Currently not repeating.");
+    }
+
+    if (beat.repeat.exit.type === "count") {
+      throw new EngineStateError("Cannot exit counted repeat.");
+    }
+
+    this.repeatState.set({
+      ...this.repeatState.get(),
+      exiting: value,
+    });
+  }
+
+  public getBeatByTime(time: number): BeatFrame | undefined {
+    return this.beats.search({ time } as BeatFrame);
+  }
+
+  public getBeatByMeasureReference(reference: MeasureReference): BeatFrame | undefined {
+    return this.beats.search({ reference } as BeatFrame, {
+      comparator: (a, b) => compareMeasureReferences(a.reference, b.reference),
+    });
   }
 
   private generateBeatFrames(): void {
@@ -275,6 +312,12 @@ export default class Engine {
     this.songTime.set(0);
     this.songDuration.set(time);
 
+    this.currentBeatIndex.set(0);
+    this.repeatState.set({
+      iteration: 0,
+      exiting: false,
+    });
+
     // TODO: Set playing and seek to the previous location
   }
 
@@ -285,6 +328,12 @@ export default class Engine {
     this.playing.set(false);
     this.songTime.set(0);
     this.songDuration.set(0);
+
+    this.currentBeatIndex.set(0);
+    this.repeatState.set({
+      iteration: 0,
+      exiting: false,
+    });
   }
 
   load(song: Song): void {
@@ -316,7 +365,24 @@ export default class Engine {
   }
 
   private update(delta: number): void {
+    const time = this.songTime.get();
+    const nextTime = time + delta;
 
+    // TODO: Stop and skip update if there are no beats or we reached the end. Also implement segue later
+
+    const beat = this.currentBeat.get();
+    if (!beat) {
+      throw new Error("No current beat.");
+    }
+
+    // Move on to the next beat if we surpassed the current one
+    if (nextTime > beat.time + beat.duration) {
+      const nextBeatIndex = this.currentBeatIndex.get() + 1;
+      this.currentBeatIndex.set(nextBeatIndex);
+    }
+
+    // Update the current time
+    this.songTime.set(nextTime);
   }
 
   seek(): void {
