@@ -1,17 +1,17 @@
 import stylistic from "@stylistic/eslint-plugin";
 import pluginVitest from "@vitest/eslint-plugin";
-import { globalIgnores } from "eslint/config";
+import { defineConfig, globalIgnores } from "eslint/config";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
-import tseslint from "typescript-eslint";
+import { configs } from "typescript-eslint";
 
-export default tseslint.config(
+export default defineConfig(
   {
     name: "app/files-to-lint",
     files: ["**/*.{ts,mts}"],
   },
   globalIgnores(["**/dist/**", "**/coverage/**"]),
 
-  ...tseslint.configs.recommended,
+  ...configs.recommended,
 
   {
     ...pluginVitest.configs.recommended,
@@ -76,7 +76,7 @@ export default tseslint.config(
         allowTypedFunctionExpressions: true,
       }],
 
-      // Always require curly braces for if/else/for/while/do — no braceless one-liners.
+      // Always require curly braces for if/else/for/while/do - no braceless one-liners.
       "curly": ["error", "all"],
 
       // Prefer undefined over null for absent values.
