@@ -41,6 +41,10 @@ export default class Engine {
     return Boolean(this.song);
   }
 
+  public getBeatFrames(): BeatFrame[] {
+    return this.beats.items();
+  }
+
   private generateBeatFrames(): void {
     if (!this.song) {
       throw new EngineStateError("Engine has no song stored.");

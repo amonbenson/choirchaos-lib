@@ -7,6 +7,7 @@ import { createSong, type Song } from "@/model/song";
 import { type SongId } from "@/model/song";
 import { QuarterNote } from "@/music";
 
+import { type BeatFrame } from "./beatFrame.js";
 import Engine from "./engine.js";
 import { SongStructureError } from "./errors.js";
 
@@ -283,6 +284,74 @@ describe("Engine", () => {
 
         expect(error).toBeInstanceOf(SongStructureError);
         expect((error as SongStructureError).measureIndex).toBe(1);
+      });
+    });
+
+    describe("beat timing", () => {
+      function loadAndGetFrames(...measures: Measure[]): BeatFrame[] {
+        const engine = new Engine();
+        engine.load(song(...measures));
+        return engine.getBeatFrames();
+      }
+
+      it("assigns correct time and duration at the default tempo (120 BPM)", () => {
+        // At 120 BPM: duration = 60/120 = 0.5s per beat
+        const frames = loadAndGetFrames(measure([beat(), beat(), beat()]));
+
+        expect(frames).toHaveLength(3);
+        expect(frames[0]).toMatchObject({ time: 0, duration: 0.5 });
+        expect(frames[1]).toMatchObject({ time: 0.5, duration: 0.5 });
+        expect(frames[2]).toMatchObject({ time: 1.0, duration: 0.5 });
+      });
+
+      it("applies a tempo change immediately on the beat it appears", () => {
+        // Beat 0: 120 BPM → 0.5s, beat 1: 60 BPM → 1.0s, beat 2: 60 BPM → 1.0s
+        const frames = loadAndGetFrames(measure([
+          beat(),
+          beat({ type: "tempoChange", value: { bpm: 60, pulse: QuarterNote } }),
+          beat(),
+        ]));
+
+        expect(frames[0]).toMatchObject({ time: 0, duration: 0.5 });
+        expect(frames[1]).toMatchObject({ time: 0.5, duration: 1.0 });
+        expect(frames[2]).toMatchObject({ time: 1.5, duration: 1.0 });
+      });
+
+      it("carries tempo across measure boundaries", () => {
+        // Measure 0 at 60 BPM (1.0s/beat), measure 1 inherits that tempo
+        const frames = loadAndGetFrames(
+          measure([beat({ type: "tempoChange", value: { bpm: 60, pulse: QuarterNote } }), beat()]),
+          measure([beat(), beat()]),
+        );
+
+        expect(frames).toHaveLength(4);
+        expect(frames[0]).toMatchObject({ time: 0, duration: 1.0 });
+        expect(frames[1]).toMatchObject({ time: 1.0, duration: 1.0 });
+        expect(frames[2]).toMatchObject({ time: 2.0, duration: 1.0 });
+        expect(frames[3]).toMatchObject({ time: 3.0, duration: 1.0 });
+      });
+
+      it("handles multiple tempo changes within a single measure", () => {
+        // Beat 0: 120 BPM → 0.5s, beat 1: 60 BPM → 1.0s, beat 2: 30 BPM → 2.0s
+        const frames = loadAndGetFrames(measure([
+          beat(),
+          beat({ type: "tempoChange", value: { bpm: 60, pulse: QuarterNote } }),
+          beat({ type: "tempoChange", value: { bpm: 30, pulse: QuarterNote } }),
+        ]));
+
+        expect(frames[0]).toMatchObject({ time: 0, duration: 0.5 });
+        expect(frames[1]).toMatchObject({ time: 0.5, duration: 1.0 });
+        expect(frames[2]).toMatchObject({ time: 1.5, duration: 2.0 });
+      });
+
+      it("produces no beat frames for a song with no measures", () => {
+        const frames = loadAndGetFrames();
+        expect(frames).toHaveLength(0);
+      });
+
+      it("produces no beat frames for measures with no beats", () => {
+        const frames = loadAndGetFrames(measure([]), measure([]));
+        expect(frames).toHaveLength(0);
       });
     });
 
