@@ -1,7 +1,15 @@
-import { Song } from "@/model/song";
-import { Emitter, Emitters } from "@/utils/events";
+import { type Cut, type Marker, type MeasureDirection, type Repeat, type Vamp } from "@/model/direction";
+import { type MeasureNumber } from "@/model/measure";
+import { type Song } from "@/model/song";
+import { DefaultTempo, DefaultTimeSignature, nextSequentialNumbering } from "@/music";
+import { Emitter, type Emitters } from "@/utils/events";
 
-import { BeatList } from "./beat";
+import { type BeatFrame, BeatTimeline } from "./beatFrame";
+import { type ResolvedDirection } from "./resolvedDirection";
+
+export type EngineOptions = {
+  markerDuration: "beat" | "bar";
+};
 
 export default class Engine {
   private readonly emitters = {
@@ -10,15 +18,158 @@ export default class Engine {
     error: new Emitter<Error>(),
   } satisfies Emitters;
 
+  private options: EngineOptions;
+
   private song?: Song;
-  private beats: BeatList = new BeatList();
+
+  private beats: BeatTimeline = new BeatTimeline();
+  private currentBeatIndex: number = 0;
 
   readonly onUnloaded = this.emitters.unloaded.event;
   readonly onReady = this.emitters.ready.event;
   readonly onError = this.emitters.error.event;
 
+  constructor(options: Partial<EngineOptions> = {}) {
+    this.options = {
+      markerDuration: "bar",
+      ...options,
+    };
+  }
+
   public isReady(): boolean {
     return Boolean(this.song);
+  }
+
+  private generateBeatFrames(): void {
+    if (!this.song) {
+      throw new Error("Engine has no song stored.");
+    }
+
+    // Generate all annotated beats
+    const beatFrames: BeatFrame[] = [];
+
+    let time = 0;
+    let measureNumber = "1" as MeasureNumber;
+
+    let tempo = DefaultTempo;
+    let timeSignature = DefaultTimeSignature;
+
+    let marker: ResolvedDirection<Marker> | undefined = undefined;
+    let repeat: ResolvedDirection<Repeat> | undefined = undefined;
+    let vamp: ResolvedDirection<Vamp> | undefined = undefined;
+    let cut: ResolvedDirection<Cut> | undefined = undefined;
+
+    for (let m = 0; m < this.song.measures.length; m++) {
+      const measure = this.song.measures[m];
+
+      // Handle measure directions
+      for (const direction of measure.directions) {
+        // Catch overlapping repeats
+        if ((repeat || vamp) && (direction.type === "repeat" || direction.type === "vamp")) {
+          throw new Error(`Overlapping repeat or vamp at measure ${measureNumber}`);
+        }
+
+        const resolvedDirection = {
+          ...direction,
+          measureIndex: m,
+        } satisfies ResolvedDirection<MeasureDirection>;
+
+        switch (resolvedDirection.type) {
+          case "measureNumberChange":
+            measureNumber = resolvedDirection.value;
+            break;
+          case "marker":
+            marker = resolvedDirection;
+            break;
+          case "repeat":
+            repeat = resolvedDirection;
+            break;
+          case "vamp":
+            vamp = resolvedDirection;
+            break;
+          case "cut":
+            cut = resolvedDirection;
+            break;
+        }
+      }
+
+      for (let b = 0; b < measure.beats.length; b++) {
+        const beat = measure.beats[b];
+
+        // Handle beat directions
+        for (const direction of beat.directions) {
+          switch (direction.type) {
+            case "tempoChange":
+              tempo = direction.value;
+              break;
+            case "timeSignatureChange":
+              timeSignature = direction.value;
+              break;
+          }
+        }
+
+        // Beat duration can be derived directly from the tempo in beats per second
+        const duration = 60 / tempo.bpm;
+
+        beatFrames.push({
+          time,
+          duration,
+          reference: [measureNumber, b],
+          tempo,
+          timeSignature,
+          marker,
+          repeat,
+          vamp,
+          cut,
+        });
+
+        // Increment time
+        time += duration;
+      }
+
+      // Increment the measure number
+      measureNumber = nextSequentialNumbering(measureNumber);
+
+      // Clear past directions
+      if (marker) {
+        marker = undefined;
+      }
+
+      if (repeat && m - repeat.measureIndex >= repeat.length) {
+        repeat = undefined;
+      }
+
+      if (vamp && m - vamp.measureIndex >= vamp.length) {
+        vamp = undefined;
+      }
+
+      if (cut && m - cut.measureIndex >= cut.length) {
+        cut = undefined;
+      }
+    }
+
+    // Make sure that all length-restricted directions persist past the end of the song
+    if (repeat) {
+      throw new Error("Repeat cannot persist past the end of the song.");
+    }
+
+    if (vamp) {
+      throw new Error("Vamp cannot persist past the end of the song.");
+    }
+
+    if (cut) {
+      throw new Error("Cut cannot persist past the end of the song.");
+    }
+
+    // Store the annotated beats and reset the index
+    this.beats = new BeatTimeline(beatFrames);
+    this.currentBeatIndex = 0;
+  }
+
+  private reset(): void {
+    this.song = undefined;
+    this.beats.clear();
+    this.currentBeatIndex = 0;
   }
 
   load(song: Song): void {
@@ -30,9 +181,12 @@ export default class Engine {
     try {
       this.song = song;
 
+      this.generateBeatFrames();
+      this.currentBeatIndex = 0;
+
       this.emitters.ready.fire();
     } catch (err) {
-      this.song = undefined;
+      this.reset();
       this.emitters.error.fire(err as Error);
     }
   }
@@ -43,10 +197,7 @@ export default class Engine {
       return;
     }
 
-    // Clear all data
-    this.song = undefined;
-    this.beats.clear();
-
+    this.reset();
     this.emitters.unloaded.fire();
   }
 }

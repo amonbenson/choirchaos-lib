@@ -4,3 +4,5 @@ export type TimeSignature = {
   beats: number;
   denominator: BeatType;
 };
+
+export const DefaultTimeSignature: TimeSignature = { beats: 4, denominator: 4 };

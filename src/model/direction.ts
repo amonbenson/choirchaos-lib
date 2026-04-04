@@ -1,12 +1,6 @@
-import { Tempo, TimeSignature } from "@/music";
+import { type Tempo, type TimeSignature } from "@/music";
 
-import { BeatNumber } from "./beat";
-import { MeasureNumber } from "./measure";
-
-export type MeasureNumberChange = {
-  type: "measureNumberChange";
-  value: MeasureNumber;
-};
+import { type MeasureNumber } from "./measure";
 
 export type TempoChange = {
   type: "tempoChange";
@@ -18,6 +12,13 @@ export type TimeSignatureChange = {
   value: TimeSignature;
 };
 
+export type BeatDirection = TempoChange | TimeSignatureChange;
+
+export type MeasureNumberChange = {
+  type: "measureNumberChange";
+  value: MeasureNumber;
+};
+
 export type Marker = {
   type: "marker";
   value: string;
@@ -25,7 +26,7 @@ export type Marker = {
 
 export type Repeat = {
   type: "repeat";
-  length: BeatNumber;
+  length: number;
   iterations: number;
 };
 
@@ -35,17 +36,17 @@ export type VampExit = { type: "end" }
 
 export type Vamp = {
   type: "vamp";
-  length: BeatNumber;
+  length: number;
   exit: VampExit;
   safety: boolean;
 };
 
 export type Cut = {
   type: "cut";
-  length: BeatNumber;
+  length: number;
 };
 
-export type MeasureDirection = MeasureNumberChange | TempoChange | TimeSignatureChange | Marker | Repeat | Vamp | Cut;
+export type MeasureDirection = MeasureNumberChange | Marker | Repeat | Vamp | Cut;
 
 export type Segue = {
   type: "segue";
@@ -53,3 +54,5 @@ export type Segue = {
 };
 
 export type SongDirection = Segue;
+
+export type Direction = BeatDirection | MeasureDirection | SongDirection;

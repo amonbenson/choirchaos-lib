@@ -1,7 +1,7 @@
-import { Branded } from "@/utils/brand";
-import { UrlOrFile } from "@/utils/file";
+import { type Branded } from "@/utils/brand";
+import { type UrlOrFile } from "@/utils/file";
 
-import { Song } from "./song";
+import { type Song } from "./song";
 
 export type ShowId = Branded<string, "ShowId">;
 

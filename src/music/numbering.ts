@@ -1,4 +1,4 @@
-import { Branded } from "@/utils/brand";
+import { type Branded } from "@/utils/brand";
 
 const NUMBERING_REGEX = /^(\d+)?([a-zA-Z])?(-(\d+))?$/;
 
@@ -16,9 +16,9 @@ export function asNumbering(value: unknown): Numbering {
   return value as Numbering;
 }
 
-export function parseNumbering(value: Numbering): [number, string, number] {
-  value = asNumbering(value);
-  const match = value.match(NUMBERING_REGEX) as RegExpMatchArray;
+export function parseNumbering<T extends Numbering>(value: T): [number, string, number] {
+  const numbering = asNumbering(value);
+  const match = numbering.match(NUMBERING_REGEX) as RegExpMatchArray;
 
   // Group 1: number, group 2: letter, group 3: /, group 4: iterations
   const num = parseInt(match[1] ?? "0", 10);
@@ -28,17 +28,17 @@ export function parseNumbering(value: Numbering): [number, string, number] {
   return [num, letter, iter];
 }
 
-export function nextSequentialNumbering(value: Numbering): Numbering {
+export function nextSequentialNumbering<T extends Numbering>(value: T): T {
   const num = parseNumbering(value)[0];
-  return String(num + 1) as Numbering;
+  return String(num + 1) as T;
 }
 
-export function previousSequentialNumbering(value: Numbering): Numbering {
+export function previousSequentialNumbering<T extends Numbering>(value: T): T {
   const num = parseNumbering(value)[0];
-  return String(num - 1) as Numbering;
+  return String(num - 1) as T;
 }
 
-export function compareNumberings(a: Numbering, b: Numbering): number {
+export function compareNumberings<T extends Numbering>(a: T, b: T): number {
   const [numA, letterA, iterA] = parseNumbering(a);
   const [numB, letterB, iterB] = parseNumbering(b);
 

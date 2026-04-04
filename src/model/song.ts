@@ -1,8 +1,8 @@
-import { Branded } from "@/utils/brand";
+import { type Branded } from "@/utils/brand";
 
 import type { Numbering } from "../music/numbering";
-import { SongDirection } from "./direction";
-import { Measure } from "./measure";
+import { type SongDirection } from "./direction";
+import { type Measure } from "./measure";
 
 export type SongId = Branded<string, "SongId">;
 export type SongNumber = Branded<Numbering, "SongNumber">;

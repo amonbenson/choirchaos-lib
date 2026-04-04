@@ -1,7 +1,5 @@
-import { MeasureDirection } from "./direction";
-
-export type BeatNumber = number;
+import { type BeatDirection } from "./direction";
 
 export type Beat = {
-  directions: MeasureDirection[];
+  directions: BeatDirection[];
 };
