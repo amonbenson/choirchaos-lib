@@ -1,4 +1,4 @@
-import { type Cut, type Marker, type MeasureDirection, type Repeat, type Vamp } from "@/model/direction";
+import { type Cut, type Marker, type MeasureDirection, type Repeat } from "@/model/direction";
 import { type MeasureNumber } from "@/model/measure";
 import { type Song } from "@/model/song";
 import { DefaultTempo, DefaultTimeSignature, nextSequentialNumbering } from "@/music";
@@ -48,7 +48,6 @@ export default class Engine {
 
     let marker: ResolvedDirection<Marker> | undefined = undefined;
     let repeat: ResolvedDirection<Repeat> | undefined = undefined;
-    let vamp: ResolvedDirection<Vamp> | undefined = undefined;
     let cut: ResolvedDirection<Cut> | undefined = undefined;
 
     let isRepeatEnd = false;
@@ -63,12 +62,7 @@ export default class Engine {
 
       if (repeat && m - repeat.measureIndex >= repeat.length) {
         repeat = undefined;
-        isRepeatEnd = true; // End of repeat
-      }
-
-      if (vamp && m - vamp.measureIndex >= vamp.length) {
-        vamp = undefined;
-        isRepeatEnd = true; // End of vamp also triggers a repeat
+        isRepeatEnd = true; // Mark end of repeat. Will be reset after the next beat
       }
 
       if (cut && m - cut.measureIndex >= cut.length) {
@@ -82,8 +76,8 @@ export default class Engine {
       // Handle measure directions
       for (const direction of measure.directions) {
         // Catch overlapping repeats
-        if ((repeat || vamp) && (direction.type === "repeat" || direction.type === "vamp")) {
-          throw new SongStructureError(`Overlapping repeat or vamp at measure ${measureNumber}`, m);
+        if (repeat && (direction.type === "repeat")) {
+          throw new SongStructureError(`Overlapping repeat at measure ${measureNumber}`, m);
         }
 
         const resolvedDirection = {
@@ -103,22 +97,26 @@ export default class Engine {
               throw new SongStructureError("Repeat length must be at least 1.", m);
             }
 
-            if (resolvedDirection.iterations < 2) {
-              throw new SongStructureError("Repeat must have at least 2 iterations.", m);
+            // Validate exit conditions for each type
+            switch (resolvedDirection.exit.type) {
+              case "count":
+                if (resolvedDirection.exit.iterations < 1) {
+                  throw new SongStructureError("Repeat must have at least 1 iterations.", m);
+                }
+
+                break;
+              case "vamp":
+                break;
+              case "vampOutAnyBar":
+              case "vampOutAnyBeat":
+                if (resolvedDirection.exit.every < 1) {
+                  throw new SongStructureError("Vamp exit interval must be at least 1.", m);
+                }
+
+                break;
             }
 
             repeat = resolvedDirection;
-            break;
-          case "vamp":
-            if (resolvedDirection.length < 1) {
-              throw new SongStructureError("Vamp length must be at least 1.", m);
-            }
-
-            if (resolvedDirection.exit.type !== "end" && resolvedDirection.exit.every < 1) {
-              throw new SongStructureError("Vamp exit interval must be at least 1.", m);
-            }
-
-            vamp = resolvedDirection;
             break;
           case "cut":
             if (resolvedDirection.length < 1) {
@@ -155,17 +153,17 @@ export default class Engine {
 
         // Check for vamp exit locations
         let isVampExit = false;
-        if (vamp) {
-          switch (vamp.exit.type) {
-            case "bar":
+        if (repeat && repeat.exit.type !== "count") {
+          switch (repeat.exit.type) {
+            case "vampOutAnyBar":
               // Exit every nth bar on the first beat
-              isVampExit = ((m - vamp.measureIndex) % vamp.exit.every === 0) && b === 0;
+              isVampExit = ((m - repeat.measureIndex) % repeat.exit.every === 0) && b === 0;
               break;
-            case "beat":
+            case "vampOutAnyBeat":
               // Exit every nth beat
-              isVampExit = b % vamp.exit.every === 0;
+              isVampExit = b % repeat.exit.every === 0;
               break;
-            case "end":
+            case "vamp":
               // Exit only at the end. This is handled by the clear-directions-block above
               break;
           }
@@ -182,7 +180,6 @@ export default class Engine {
           timeSignature,
           marker,
           repeat,
-          vamp,
           cut,
           isRepeatEnd,
           isVampExit,
@@ -202,10 +199,6 @@ export default class Engine {
     // Make sure that all length-restricted directions persist past the end of the song
     if (repeat) {
       throw new SongStructureError("Repeat cannot persist past the end of the song.", repeat.measureIndex);
-    }
-
-    if (vamp) {
-      throw new SongStructureError("Vamp cannot persist past the end of the song.", vamp.measureIndex);
     }
 
     if (cut) {

@@ -24,20 +24,16 @@ export type Marker = {
   value: string;
 };
 
+export type RepeatExit
+  = { type: "count"; iterations: number }
+    | { type: "vamp" }
+    | { type: "vampOutAnyBar"; every: number }
+    | { type: "vampOutAnyBeat"; every: number };
+
 export type Repeat = {
   type: "repeat";
   length: number;
-  iterations: number;
-};
-
-export type VampExit = { type: "end" }
-  | { type: "bar"; every: number }
-  | { type: "beat"; every: number };
-
-export type Vamp = {
-  type: "vamp";
-  length: number;
-  exit: VampExit;
+  exit: RepeatExit;
   safety: boolean;
 };
 
@@ -46,7 +42,7 @@ export type Cut = {
   length: number;
 };
 
-export type MeasureDirection = MeasureNumberChange | Marker | Repeat | Vamp | Cut;
+export type MeasureDirection = MeasureNumberChange | Marker | Repeat | Cut;
 
 export type Segue = {
   type: "segue";

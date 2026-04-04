@@ -25,6 +25,11 @@ function song(...measures: Measure[]): Song {
   return { ...createSong("test" as SongId), measures };
 }
 
+// A repeat (count-based) that extends past the end of a 1-measure song — useful as a generic invalid song
+const invalidSong = song(
+  measure([beat()], { type: "repeat", length: 3, exit: { type: "count", iterations: 2 }, safety: false }),
+);
+
 const simpleSong = song(
   measure([beat(), beat(), beat(), beat()]),
   measure([beat(), beat(), beat(), beat()]),
@@ -81,11 +86,6 @@ describe("Engine", () => {
 
       engine.onError(onError);
       engine.onUnloaded(onUnloaded);
-
-      const invalidSong = song(
-        measure([beat()], { type: "repeat", length: 3, iterations: 2 }),
-      );
-
       engine.load(invalidSong);
 
       expect(onError).toHaveBeenCalledOnce();
@@ -94,10 +94,6 @@ describe("Engine", () => {
 
     it("is not ready after a failed load", () => {
       const engine = new Engine();
-
-      const invalidSong = song(
-        measure([beat()], { type: "repeat", length: 3, iterations: 2 }),
-      );
 
       engine.load(invalidSong);
 
@@ -109,11 +105,6 @@ describe("Engine", () => {
       const onReady = vi.fn();
 
       engine.onReady(onReady);
-
-      const invalidSong = song(
-        measure([beat()], { type: "repeat", length: 3, iterations: 2 }),
-      );
-
       engine.load(invalidSong);
       engine.load(simpleSong);
 
@@ -197,26 +188,26 @@ describe("Engine", () => {
         expect(onReady).toHaveBeenCalledOnce();
       });
 
-      it("loads a song with a repeat that ends exactly within the song", () => {
+      it("loads a song with a count repeat that ends exactly within the song", () => {
         const engine = new Engine();
         const onReady = vi.fn();
 
         engine.onReady(onReady);
         engine.load(song(
-          measure([beat()], { type: "repeat", length: 1, iterations: 2 }),
+          measure([beat()], { type: "repeat", length: 1, exit: { type: "count", iterations: 2 }, safety: false }),
           measure([beat()]),
         ));
 
         expect(onReady).toHaveBeenCalledOnce();
       });
 
-      it("loads a song with a vamp that ends exactly within the song", () => {
+      it("loads a song with a vamp repeat that ends exactly within the song", () => {
         const engine = new Engine();
         const onReady = vi.fn();
 
         engine.onReady(onReady);
         engine.load(song(
-          measure([beat()], { type: "vamp", length: 1, exit: { type: "end" }, safety: false }),
+          measure([beat()], { type: "repeat", length: 1, exit: { type: "vamp" }, safety: false }),
           measure([beat()]),
         ));
 
@@ -246,15 +237,15 @@ describe("Engine", () => {
           error = err;
         });
         engine.load(song(
-          measure([beat()], { type: "repeat", length: 3, iterations: 2 }),
-          measure([beat()], { type: "repeat", length: 2, iterations: 2 }),
+          measure([beat()], { type: "repeat", length: 3, exit: { type: "count", iterations: 2 }, safety: false }),
+          measure([beat()], { type: "repeat", length: 2, exit: { type: "count", iterations: 2 }, safety: false }),
         ));
 
         expect(error).toBeInstanceOf(SongStructureError);
         expect((error as SongStructureError).measureIndex).toBe(1);
       });
 
-      it("fires onError with SongStructureError when a vamp overlaps another vamp", () => {
+      it("fires onError with SongStructureError when a vamp repeat overlaps another repeat", () => {
         const engine = new Engine();
         let error: Error | undefined;
 
@@ -262,24 +253,8 @@ describe("Engine", () => {
           error = err;
         });
         engine.load(song(
-          measure([beat()], { type: "vamp", length: 3, exit: { type: "end" }, safety: false }),
-          measure([beat()], { type: "vamp", length: 2, exit: { type: "end" }, safety: false }),
-        ));
-
-        expect(error).toBeInstanceOf(SongStructureError);
-        expect((error as SongStructureError).measureIndex).toBe(1);
-      });
-
-      it("fires onError with SongStructureError when a vamp overlaps a repeat", () => {
-        const engine = new Engine();
-        let error: Error | undefined;
-
-        engine.onError((err) => {
-          error = err;
-        });
-        engine.load(song(
-          measure([beat()], { type: "repeat", length: 3, iterations: 2 }),
-          measure([beat()], { type: "vamp", length: 2, exit: { type: "end" }, safety: false }),
+          measure([beat()], { type: "repeat", length: 3, exit: { type: "vamp" }, safety: false }),
+          measure([beat()], { type: "repeat", length: 2, exit: { type: "count", iterations: 2 }, safety: false }),
         ));
 
         expect(error).toBeInstanceOf(SongStructureError);
@@ -348,11 +323,6 @@ describe("Engine", () => {
         const frames = loadAndGetFrames();
         expect(frames).toHaveLength(0);
       });
-
-      it("produces no beat frames for a song with no measures", () => {
-        const frames = loadAndGetFrames();
-        expect(frames).toHaveLength(0);
-      });
     });
 
     describe("direction validation", () => {
@@ -375,27 +345,27 @@ describe("Engine", () => {
 
       it("rejects a repeat with length < 1", () => {
         expect.assertions(1);
-        expectStructureError(song(measure([beat()], { type: "repeat", length: 0, iterations: 2 })));
+        expectStructureError(song(measure([beat()], { type: "repeat", length: 0, exit: { type: "count", iterations: 2 }, safety: false })));
       });
 
-      it("rejects a repeat with fewer than 2 iterations", () => {
+      it("rejects a count repeat with 0 iterations", () => {
         expect.assertions(1);
-        expectStructureError(song(measure([beat()], { type: "repeat", length: 1, iterations: 1 })));
+        expectStructureError(song(measure([beat()], { type: "repeat", length: 1, exit: { type: "count", iterations: 0 }, safety: false })));
       });
 
-      it("rejects a vamp with length < 1", () => {
+      it("rejects a vamp repeat with length < 1", () => {
         expect.assertions(1);
-        expectStructureError(song(measure([beat()], { type: "vamp", length: 0, exit: { type: "end" }, safety: false })));
+        expectStructureError(song(measure([beat()], { type: "repeat", length: 0, exit: { type: "vamp" }, safety: false })));
       });
 
-      it("rejects a vamp with a bar exit interval < 1", () => {
+      it("rejects a vampOutAnyBar repeat with exit interval < 1", () => {
         expect.assertions(1);
-        expectStructureError(song(measure([beat()], { type: "vamp", length: 1, exit: { type: "bar", every: 0 }, safety: false })));
+        expectStructureError(song(measure([beat()], { type: "repeat", length: 1, exit: { type: "vampOutAnyBar", every: 0 }, safety: false })));
       });
 
-      it("rejects a vamp with a beat exit interval < 1", () => {
+      it("rejects a vampOutAnyBeat repeat with exit interval < 1", () => {
         expect.assertions(1);
-        expectStructureError(song(measure([beat()], { type: "vamp", length: 1, exit: { type: "beat", every: 0 }, safety: false })));
+        expectStructureError(song(measure([beat()], { type: "repeat", length: 1, exit: { type: "vampOutAnyBeat", every: 0 }, safety: false })));
       });
 
       it("rejects a cut with length < 1", () => {
@@ -433,7 +403,7 @@ describe("Engine", () => {
           error = err;
         });
         engine.load(song(
-          measure([beat()], { type: "repeat", length: 3, iterations: 2 }),
+          measure([beat()], { type: "repeat", length: 3, exit: { type: "count", iterations: 2 }, safety: false }),
           measure([beat()]),
         ));
 
@@ -441,7 +411,7 @@ describe("Engine", () => {
         expect((error as SongStructureError).measureIndex).toBe(0);
       });
 
-      it("fires onError for a vamp that exceeds the song length", () => {
+      it("fires onError for a vamp repeat that exceeds the song length", () => {
         const engine = new Engine();
         let error: Error | undefined;
 
@@ -449,7 +419,7 @@ describe("Engine", () => {
           error = err;
         });
         engine.load(song(
-          measure([beat()], { type: "vamp", length: 3, exit: { type: "end" }, safety: false }),
+          measure([beat()], { type: "repeat", length: 3, exit: { type: "vamp" }, safety: false }),
           measure([beat()]),
         ));
 
