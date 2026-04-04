@@ -16,16 +16,31 @@ export function asNumbering(value: unknown): Numbering {
   return value as Numbering;
 }
 
+export function parseNumbering(value: Numbering): [number, string, number] {
+  value = asNumbering(value);
+  const match = value.match(NUMBERING_REGEX) as RegExpMatchArray;
+
+  // group 1: number, group 2: letter, group 3: /, group 4: iterations
+  const num = parseInt(match[1] ?? "0", 10);
+  const letter = match[2] ?? "";
+  const iter = parseInt(match[4] ?? "0", 10);
+
+  return [num, letter, iter];
+}
+
+export function nextSequentialNumbering(value: Numbering): Numbering {
+  const num = parseNumbering(value)[0];
+  return String(num + 1) as Numbering;
+}
+
+export function previousSequentialNumbering(value: Numbering): Numbering {
+  const num = parseNumbering(value)[0];
+  return String(num - 1) as Numbering;
+}
+
 export function compareNumberings(a: Numbering, b: Numbering): number {
-  a = asNumbering(a);
-  b = asNumbering(b);
-
-  // group 1: number, group 2: letter, group 3: /, group 4: letter
-  const matchA = a.match(NUMBERING_REGEX) as RegExpMatchArray;
-  const matchB = b.match(NUMBERING_REGEX) as RegExpMatchArray;
-
-  const numA = parseInt(matchA[1] ?? "0", 10);
-  const numB = parseInt(matchB[1] ?? "0", 10);
+  const [numA, letterA, iterA] = parseNumbering(a);
+  const [numB, letterB, iterB] = parseNumbering(b);
 
   // Compare the numeric parts
   if (numA !== numB) {
@@ -33,16 +48,10 @@ export function compareNumberings(a: Numbering, b: Numbering): number {
   }
 
   // If numeric parts are equal, compare iterations
-  const iterA = parseInt(matchA[4] ?? "0", 10);
-  const iterB = parseInt(matchB[4] ?? "0", 10);
-
   if (iterA !== iterB) {
     return iterA - iterB;
   }
 
   // If iterations are equal, compare the letter parts
-  const letterA = matchA[2] ?? "";
-  const letterB = matchB[2] ?? "";
-
   return letterA.localeCompare(letterB);
 }
