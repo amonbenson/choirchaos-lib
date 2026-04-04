@@ -29,3 +29,27 @@ export class Emitter<T> {
     this._listeners.clear();
   }
 }
+
+export class Property<T> {
+  private value: T;
+  private readonly emitter = new Emitter<T>();
+
+  readonly onChange: Event<T> = this.emitter.event;
+
+  constructor(initialValue: T) {
+    this.value = initialValue;
+  }
+
+  get(): T {
+    return this.value;
+  }
+
+  set(value: T): void {
+    if (this.value === value) {
+      return;
+    }
+
+    this.value = value;
+    this.emitter.fire(value);
+  }
+}
