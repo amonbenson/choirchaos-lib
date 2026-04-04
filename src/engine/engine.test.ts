@@ -61,7 +61,7 @@ describe("Engine", () => {
       const engine = new Engine();
       const onUnloaded = vi.fn();
 
-      engine.onUnloaded(onUnloaded);
+      engine.onUnload(onUnloaded);
       engine.load(song(measure([beat()])));
       engine.load(song(measure([beat()])));
 
@@ -85,7 +85,7 @@ describe("Engine", () => {
       const onUnloaded = vi.fn();
 
       engine.onError(onError);
-      engine.onUnloaded(onUnloaded);
+      engine.onUnload(onUnloaded);
       engine.load(invalidSong);
 
       expect(onError).toHaveBeenCalledOnce();
@@ -127,7 +127,7 @@ describe("Engine", () => {
       const engine = new Engine();
       const onUnloaded = vi.fn();
 
-      engine.onUnloaded(onUnloaded);
+      engine.onUnload(onUnloaded);
       engine.load(simpleSong);
       engine.unload();
 
@@ -138,7 +138,7 @@ describe("Engine", () => {
       const engine = new Engine();
       const onUnloaded = vi.fn();
 
-      engine.onUnloaded(onUnloaded);
+      engine.onUnload(onUnloaded);
       engine.unload();
 
       expect(onUnloaded).not.toHaveBeenCalled();
@@ -148,7 +148,7 @@ describe("Engine", () => {
       const engine = new Engine();
       const onUnloaded = vi.fn();
 
-      engine.onUnloaded(onUnloaded);
+      engine.onUnload(onUnloaded);
       engine.load(simpleSong);
       engine.unload();
       engine.unload();

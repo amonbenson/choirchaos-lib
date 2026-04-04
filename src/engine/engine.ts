@@ -2,7 +2,7 @@ import { type Cut, type Marker, type MeasureDirection, type Repeat } from "@/mod
 import { type MeasureNumber } from "@/model/measure";
 import { type Song } from "@/model/song";
 import { DefaultTempo, DefaultTimeSignature, nextSequentialNumbering } from "@/music";
-import { Emitter, type Emitters, type Event, Property } from "@/utils/events";
+import { Emitter, type Emitters, Property } from "@/utils/events";
 import { SetIntervalUpdater, type Updater } from "@/utils/updater";
 
 import { type BeatFrame, BeatTimeline } from "./beatFrame";
@@ -16,6 +16,10 @@ export default class Engine {
     error: new Emitter<Error>(),
   } satisfies Emitters;
 
+  readonly onUnload = this.emitters.unloaded.event;
+  readonly onReady = this.emitters.ready.event;
+  readonly onError = this.emitters.error.event;
+
   private updater: Updater;
 
   private song?: Song;
@@ -25,9 +29,9 @@ export default class Engine {
   private songTime = new Property(0);
   private songDuration = new Property(0);
 
-  readonly onUnloaded = this.emitters.unloaded.event;
-  readonly onReady = this.emitters.ready.event;
-  readonly onError = this.emitters.error.event;
+  readonly onPlayingChange = this.playing.onChange;
+  readonly onSongTimeChange = this.songTime.onChange;
+  readonly onSongDurationChange = this.songDuration.onChange;
 
   constructor(updater?: Updater) {
     // Set the updater or use the default internal one at 50 updates per second
