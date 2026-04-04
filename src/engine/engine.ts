@@ -5,6 +5,7 @@ import { DefaultTempo, DefaultTimeSignature, nextSequentialNumbering } from "@/m
 import { Emitter, type Emitters } from "@/utils/events";
 
 import { type BeatFrame, BeatTimeline } from "./beatFrame";
+import { EngineStateError, SongStructureError } from "./errors";
 import { type ResolvedDirection } from "./resolvedDirection";
 
 export type EngineOptions = {
@@ -42,7 +43,7 @@ export default class Engine {
 
   private generateBeatFrames(): void {
     if (!this.song) {
-      throw new Error("Engine has no song stored.");
+      throw new EngineStateError("Engine has no song stored.");
     }
 
     // Generate all annotated beats
@@ -66,7 +67,7 @@ export default class Engine {
       for (const direction of measure.directions) {
         // Catch overlapping repeats
         if ((repeat || vamp) && (direction.type === "repeat" || direction.type === "vamp")) {
-          throw new Error(`Overlapping repeat or vamp at measure ${measureNumber}`);
+          throw new SongStructureError(`Overlapping repeat or vamp at measure ${measureNumber}`, m);
         }
 
         const resolvedDirection = {
@@ -150,15 +151,15 @@ export default class Engine {
 
     // Make sure that all length-restricted directions persist past the end of the song
     if (repeat) {
-      throw new Error("Repeat cannot persist past the end of the song.");
+      throw new SongStructureError("Repeat cannot persist past the end of the song.", repeat.measureIndex);
     }
 
     if (vamp) {
-      throw new Error("Vamp cannot persist past the end of the song.");
+      throw new SongStructureError("Vamp cannot persist past the end of the song.", vamp.measureIndex);
     }
 
     if (cut) {
-      throw new Error("Cut cannot persist past the end of the song.");
+      throw new SongStructureError("Cut cannot persist past the end of the song.", cut.measureIndex);
     }
 
     // Store the annotated beats and reset the index
