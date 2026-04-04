@@ -34,13 +34,13 @@ export default class Engine {
   private songDuration: number = 0;
 
   constructor(updater?: Updater) {
-    // Set the update or use the default internal one at 50 updates per second
+    // Set the updater or use the default internal one at 50 updates per second
     this.updater = updater ?? new SetIntervalUpdater({
       interval: 1 / 50,
       maximumLag: 5.0,
     });
 
-    // Register clock callback
+    // Register updater callback
     this.updater.onTick((delta) => {
       if (this.isReady() && this.isPlaying()) {
         this.update(delta);
