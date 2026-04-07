@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { type Beat } from "@/model/beat";
-import { type BeatDirection, type CutDirection, type MarkerDirection, type MeasureDirection, type TempoChangeDirection, type TimeSignatureChangeDirection } from "@/model/direction";
+import { type BeatDirection, type CutDirection, type MarkerDirection, type MeasureDirection, type RepeatDirection, type TempoChangeDirection, type TimeSignatureChangeDirection } from "@/model/direction";
 import { type Measure } from "@/model/measure";
 import { createSong, type Song } from "@/model/song";
 import { type SongId } from "@/model/song";
@@ -326,6 +326,157 @@ describe("compile", () => {
         measure(beats(4)),
         measure(beats(4)),
       ))).toThrow(SongStructureError);
+    });
+  });
+
+  describe("counted repeats", () => {
+    function repeat(length: number, iterations: number): RepeatDirection {
+      return { type: "repeat", length, exit: { type: "count", iterations }, safety: false };
+    }
+
+    it("places a counted repeat on the center 3 measures of a 5-measure song", () => {
+      const rep = repeat(3, 2);
+      const result = compile(song(
+        measure(beats(4)),
+        measure(beats(4), rep),
+        measure(beats(4)),
+        measure(beats(4)),
+        measure(beats(4)),
+      ));
+
+      // Repeats list
+      expect(result.repeats).toHaveLength(1);
+      expect(result.repeats[0].inMeasureIndex).toBe(1);
+      expect(result.repeats[0].outMeasureIndex).toBe(4);
+      expect(result.repeats[0].sourceDirection).toEqual(rep);
+
+      // Repeat field present only within the region (spot-check boundaries)
+      expect(result.measures[0].repeat).toBeUndefined();
+      expect(result.measures[1].repeat).toBe(result.repeats[0]);
+      expect(result.measures[3].repeat).toBe(result.repeats[0]);
+      expect(result.measures[4].repeat).toBeUndefined();
+
+      // Jump on beat 0 of the out measure, back to beat 0 of the in measure
+      expect(result.measures[4].beats[0].jumps).toHaveLength(1);
+      expect(result.measures[4].beats[0].jumps[0]).toEqual({
+        type: "repeat",
+        targetIndex: { measure: 1, beat: 0 },
+        repeatIndex: 0,
+      });
+      expect(result.measures[4].beats[1].jumps).toHaveLength(0);
+
+      // No vampExit jumps within the region
+      expect(result.measures[2].beats[0].jumps).toHaveLength(0);
+    });
+
+    it("repeat starting on the first measure", () => {
+      const rep = repeat(2, 2);
+      const result = compile(song(
+        measure(beats(4), rep),
+        measure(beats(4)),
+        measure(beats(4)),
+      ));
+
+      expect(result.repeats[0].inMeasureIndex).toBe(0);
+      expect(result.repeats[0].outMeasureIndex).toBe(2);
+      expect(result.measures[0].repeat).toBe(result.repeats[0]);
+      expect(result.measures[2].repeat).toBeUndefined();
+      expect(result.measures[2].beats[0].jumps[0]).toEqual({
+        type: "repeat",
+        targetIndex: { measure: 0, beat: 0 },
+        repeatIndex: 0,
+      });
+    });
+
+    it("repeat spanning all real measures places the jump in the final synthetic measure", () => {
+      const rep = repeat(3, 2);
+      const result = compile(song(
+        measure(beats(4), rep),
+        measure(beats(4)),
+        measure(beats(4)),
+      ));
+
+      expect(result.repeats[0].inMeasureIndex).toBe(0);
+      expect(result.repeats[0].outMeasureIndex).toBe(3);
+      const finalMeasure = result.measures[3];
+
+      expect(finalMeasure.beats[0].jumps).toHaveLength(1);
+      expect(finalMeasure.beats[0].jumps[0]).toEqual({
+        type: "repeat",
+        targetIndex: { measure: 0, beat: 0 },
+        repeatIndex: 0,
+      });
+    });
+
+    it("throws SongStructureError when a repeat extends past the end of the song", () => {
+      expect(() => compile(song(
+        measure(beats(4), repeat(5, 2)),
+        measure(beats(4)),
+      ))).toThrow(SongStructureError);
+    });
+
+    it("throws SongStructureError when two repeats overlap", () => {
+      expect(() => compile(song(
+        measure(beats(4), repeat(3, 2)),
+        measure(beats(4), repeat(2, 2)),
+        measure(beats(4)),
+        measure(beats(4)),
+      ))).toThrow(SongStructureError);
+    });
+  });
+
+  describe("repeat and cut intersections", () => {
+    // Helpers scoped here to avoid polluting outer scope
+    function rep(length: number): RepeatDirection {
+      return { type: "repeat", length, exit: { type: "count", iterations: 2 }, safety: false };
+    }
+
+    function cut(length: number): CutDirection {
+      return { type: "cut", length };
+    }
+
+    it("throws when a cut is fully within a repeat", () => {
+      expect(() => compile(song(
+        measure(beats(4), rep(3)),
+        measure(beats(4), cut(1)),
+        measure(beats(4)),
+      ))).toThrow(SongStructureError);
+    });
+
+    it("throws when a repeat is fully within a cut", () => {
+      expect(() => compile(song(
+        measure(beats(4), cut(3)),
+        measure(beats(4), rep(1)),
+        measure(beats(4)),
+      ))).toThrow(SongStructureError);
+    });
+
+    it("throws when a cut starts first and a repeat begins within it", () => {
+      expect(() => compile(song(
+        measure(beats(4), cut(2)),
+        measure(beats(4), rep(1)),
+      ))).toThrow(SongStructureError);
+    });
+
+    it("throws when a repeat starts first and a cut begins within it", () => {
+      expect(() => compile(song(
+        measure(beats(4), rep(2)),
+        measure(beats(4), cut(1)),
+      ))).toThrow(SongStructureError);
+    });
+
+    it("does not throw when a cut ends exactly where a repeat begins", () => {
+      expect(() => compile(song(
+        measure(beats(4), cut(1)),
+        measure(beats(4), rep(1)),
+      ))).not.toThrow();
+    });
+
+    it("does not throw when a repeat ends exactly where a cut begins", () => {
+      expect(() => compile(song(
+        measure(beats(4), rep(1)),
+        measure(beats(4), cut(1)),
+      ))).not.toThrow();
     });
   });
 });
