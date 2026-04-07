@@ -15,15 +15,15 @@ export default class CompiledSong {
     public readonly repeats: Repeat[],
   ) {
     if (measures.length === 0) {
-      throw new SongStructureError("Song should contain at least a final measure.");
+      throw new SongStructureError("Song should contain at least a stop measure.");
     }
   }
 
-  get finalMeasure(): CompiledMeasure {
+  get stopMeasure(): CompiledMeasure {
     return this.measures[this.measures.length - 1];
   }
 
   get duration(): number {
-    return this.finalMeasure.time;
+    return this.stopMeasure.time;
   }
 }

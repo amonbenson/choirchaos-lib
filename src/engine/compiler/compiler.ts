@@ -5,7 +5,6 @@ import { type Song } from "@/model/song";
 import { asNumbering, DefaultTempo, DefaultTimeSignature, nextSequentialNumbering, type Numbering, type Tempo, type TimeSignature } from "@/music";
 
 import CompiledBeat from "./beat";
-import { type MeasureCompilerState } from "./compilerState";
 import Cut from "./cut";
 import { SongStructureError } from "./errors";
 import { type Jump } from "./jump";
@@ -14,19 +13,16 @@ import CompiledMeasure from "./measure";
 import Repeat from "./repeat";
 import CompiledSong from "./song";
 
-function createFinalSourceMeasure(): Measure {
-  return {
-    beats: [{ directions: [] }],
-    directions: [],
-  };
-}
+type CompilerState = {
+  time: number;
+  measureNumber: Numbering;
+  tempo: Tempo;
+  timeSignature: TimeSignature;
+};
 
-class Compiler {
-  // Carry-forward state - snapshotted at the start of each measure for JIT recompilation
-  private time: number = 0;
-  private measureNumber: Numbering = asNumbering("1");
-  private tempo: Tempo = DefaultTempo;
-  private timeSignature: TimeSignature = DefaultTimeSignature;
+export default class Compiler {
+  // Carry-forward state
+  private state: CompilerState = Compiler.initialState();
 
   // Accumulated direction collections
   private readonly markers: Marker[] = [];
@@ -41,11 +37,27 @@ class Compiler {
   private cutActive = false;
   private cutIn = false;
 
+  private static initialState(): CompilerState {
+    return {
+      time: 0,
+      measureNumber: asNumbering("1"),
+      tempo: DefaultTempo,
+      timeSignature: DefaultTimeSignature,
+    };
+  }
+
+  private static stopMeasure(): Measure {
+    return {
+      beats: [{ directions: [] }],
+      directions: [],
+    };
+  }
+
   compile(song: Song): CompiledSong {
     const compiledMeasures: CompiledMeasure[] = [];
 
     for (let measureIndex = 0; measureIndex < song.measures.length + 1; measureIndex++) {
-      const measure = song.measures[measureIndex] ?? createFinalSourceMeasure();
+      const measure = song.measures[measureIndex] ?? Compiler.stopMeasure();
 
       compiledMeasures.push(this.compileMeasure(measure, measureIndex));
     }
@@ -62,14 +74,6 @@ class Compiler {
   }
 
   private compileMeasure(measure: Measure, measureIndex: number): CompiledMeasure {
-    // Snapshot carry-forward state before processing this measure - used for JIT recompilation
-    const compilerState: MeasureCompilerState = {
-      time: this.time,
-      measureNumber: this.measureNumber,
-      tempo: this.tempo,
-      timeSignature: this.timeSignature,
-    };
-
     if (measure.beats.length === 0) {
       throw new SongStructureError("Measure must contain at least one beat.", measureIndex);
     }
@@ -94,7 +98,7 @@ class Compiler {
     for (const direction of measure.directions) {
       switch (direction.type) {
         case "measureNumberChange":
-          this.measureNumber = direction.value;
+          this.state.measureNumber = direction.value;
           break;
         case "marker":
           this.markers.push(new Marker(measureIndex, direction));
@@ -128,7 +132,7 @@ class Compiler {
     }
 
     // Compile beats
-    const measureTime = this.time;
+    const measureTime = this.state.time;
     let measureDuration = 0;
     const compiledBeats: CompiledBeat[] = [];
 
@@ -145,18 +149,17 @@ class Compiler {
 
     const compiledMeasure = new CompiledMeasure(
       measureIndex,
-      this.measureNumber,
+      this.state.measureNumber,
       measure,
       compiledBeats,
       measureTime,
       measureDuration,
-      compilerState,
       this.markerActive ? this.markers[this.markers.length - 1] : undefined,
       this.repeatActive ? this.repeats[this.repeats.length - 1] : undefined,
       this.cutActive ? this.cuts[this.cuts.length - 1] : undefined,
     );
 
-    this.measureNumber = nextSequentialNumbering(this.measureNumber);
+    this.state.measureNumber = nextSequentialNumbering(this.state.measureNumber);
 
     return compiledMeasure;
   }
@@ -170,34 +173,34 @@ class Compiler {
             throw new SongStructureError(`Invalid tempo BPM: ${direction.value.bpm}`, measureIndex, beatIndex);
           }
 
-          this.tempo = direction.value;
+          this.state.tempo = direction.value;
           break;
         case "timeSignatureChange":
           if (direction.value.beats <= 0) {
             throw new SongStructureError(`Invalid time signature beats: ${direction.value.beats}`, measureIndex, beatIndex);
           }
 
-          this.timeSignature = direction.value;
+          this.state.timeSignature = direction.value;
           break;
         default:
           throw new SongStructureError(`Invalid direction type: ${(direction as BeatDirection).type}`, measureIndex, beatIndex);
       }
     }
 
-    const beatDuration = 60 / this.tempo.bpm;
+    const beatDuration = 60 / this.state.tempo.bpm;
     const jumps = this.generateJumps(measureIndex, beatIndex);
 
     const compiledBeat = new CompiledBeat(
       { measure: measureIndex, beat: beatIndex },
       beat,
-      this.time,
+      this.state.time,
       beatDuration,
-      this.tempo,
-      this.timeSignature,
+      this.state.tempo,
+      this.state.timeSignature,
       jumps,
     );
 
-    this.time += beatDuration;
+    this.state.time += beatDuration;
 
     return compiledBeat;
   }

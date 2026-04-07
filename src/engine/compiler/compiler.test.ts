@@ -27,11 +27,11 @@ function beats(n: number): Beat[] {
 }
 
 describe("compile", () => {
-  it("compiles an empty song into a single final measure with one beat and default settings", () => {
+  it("compiles an empty song into a single stop measure with one beat and default settings", () => {
     const emptySong = song();
     const result = compile(emptySong);
 
-    // Exactly one measure - the synthetic final measure
+    // Exactly one measure - the synthetic stop measure
     expect(result.measures).toHaveLength(1);
 
     const measure = result.measures[0];
@@ -59,14 +59,14 @@ describe("compile", () => {
     expect(result.duration).toBeCloseTo(0);
   });
 
-  it("compiles a 3-measure song with 4 beats each into 3 real measures plus a final measure", () => {
+  it("compiles a 3-measure song with 4 beats each into 3 real measures plus a stop measure", () => {
     const result = compile(song(
       measure(beats(4)),
       measure(beats(4)),
       measure(beats(4)),
     ));
 
-    // 3 real measures + 1 synthetic final measure
+    // 3 real measures + 1 synthetic stop measure
     expect(result.measures).toHaveLength(4);
 
     // Default tempo: 120 BPM -> 0.5s per beat, 2.0s per measure
@@ -109,14 +109,14 @@ describe("compile", () => {
     expect(m2FirstBeat.time).toBeCloseTo(4.0);
     expect(m2FirstBeat.duration).toBeCloseTo(0.5);
 
-    // Final synthetic measure starts right after the last real measure
-    const finalMeasure = result.measures[3];
+    // Stop measure starts right after the last real measure
+    const stopMeasure = result.measures[3];
 
-    expect(finalMeasure.index).toBe(3);
-    expect(finalMeasure.number).toBe(asNumbering("4"));
-    expect(finalMeasure.time).toBeCloseTo(6.0);
-    expect(finalMeasure.duration).toBeCloseTo(0.5);
-    expect(finalMeasure.beats).toHaveLength(1);
+    expect(stopMeasure.index).toBe(3);
+    expect(stopMeasure.number).toBe(asNumbering("4"));
+    expect(stopMeasure.time).toBeCloseTo(6.0);
+    expect(stopMeasure.duration).toBeCloseTo(0.5);
+    expect(stopMeasure.beats).toHaveLength(1);
     expect(result.duration).toBeCloseTo(6.0);
   });
 
@@ -388,7 +388,7 @@ describe("compile", () => {
       });
     });
 
-    it("repeat spanning all real measures places the jump in the final synthetic measure", () => {
+    it("repeat spanning all real measures places the jump in the stop synthetic measure", () => {
       const repeatDir = repeat(3, 2);
       const result = compile(song(
         measure(beats(4), repeatDir),
@@ -398,10 +398,10 @@ describe("compile", () => {
 
       expect(result.repeats[0].inMeasureIndex).toBe(0);
       expect(result.repeats[0].outMeasureIndex).toBe(3);
-      const finalMeasure = result.measures[3];
+      const stopMeasure = result.measures[3];
 
-      expect(finalMeasure.beats[0].jumps).toHaveLength(1);
-      expect(finalMeasure.beats[0].jumps[0]).toEqual({
+      expect(stopMeasure.beats[0].jumps).toHaveLength(1);
+      expect(stopMeasure.beats[0].jumps[0]).toEqual({
         type: "repeat",
         targetIndex: { measure: 0, beat: 0 },
         repeatIndex: 0,

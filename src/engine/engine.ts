@@ -6,6 +6,7 @@ import { Emitter, type Emitters, Property } from "@/utils/events";
 import { SetIntervalUpdater, type Updater } from "@/utils/updater";
 
 import { type BeatFrame, BeatTimeline } from "./beatFrame";
+import Compiler from "./compiler/compiler";
 import type CompiledSong from "./compiler/song";
 import { EngineStateError } from "./errors";
 import { type ResolvedDirection } from "./resolvedDirection";
@@ -22,6 +23,7 @@ export default class Engine {
   readonly onError = this.emitters.error.event;
 
   private updater: Updater;
+  private compiler: Compiler = new Compiler();
 
   private song?: Song;
   private compiledSong?: CompiledSong;
@@ -57,8 +59,8 @@ export default class Engine {
     return this.song;
   }
 
-  public getBeatFrames(): BeatFrame[] {
-    return this.beats.items();
+  public getCompiledSong(): CompiledSong | undefined {
+    return this.compiledSong;
   }
 
   public isPlaying(): boolean {
@@ -79,11 +81,12 @@ export default class Engine {
     }
 
     // Compile the song
+    this.compiler.compile(song);
 
     // Reset the playback state
     this.playing.set(false);
     this.songTime.set(0);
-    this.songDuration.set(time);
+    this.songDuration.set(this.compiledSong.duration);
 
     // TODO: Set playing and seek to the previous location
   }

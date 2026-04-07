@@ -2,7 +2,6 @@ import { type Measure } from "@/model/measure";
 import { type Numbering } from "@/music";
 
 import type CompiledBeat from "./beat";
-import { type MeasureCompilerState } from "./compilerState";
 import type Cut from "./cut";
 import { SongStructureError } from "./errors";
 import type Marker from "./marker";
@@ -17,8 +16,6 @@ export default class CompiledMeasure {
 
     public readonly time: number,
     public readonly duration: number,
-
-    public readonly compilerState: MeasureCompilerState,
 
     public readonly marker?: Marker,
     public readonly repeat?: Repeat,
