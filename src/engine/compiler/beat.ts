@@ -2,7 +2,7 @@ import { type Beat } from "@/model/beat";
 import { type Tempo, type TimeSignature } from "@/music";
 
 import { SongStructureError } from "./errors";
-import Jump from "./jump";
+import { type Jump } from "./jump";
 import { type MeasureBeatIndex, validateMeasureBeatIndex } from "./measureBeatIndex";
 
 export default class CompiledBeat {
@@ -16,17 +16,12 @@ export default class CompiledBeat {
     public readonly tempo: Tempo,
     public readonly timeSignature: TimeSignature,
 
-    public jump?: Jump,
+    public readonly jumps: Jump[],
   ) {
     validateMeasureBeatIndex(index);
 
     if (duration <= 0) {
-      throw new SongStructureError(`Invalid duration: ${duration}`, index.measure, index.beat);
+      throw new SongStructureError(`Beat cannot have a negative duration. This is likely a tempo change issue.`, index.measure, index.beat);
     }
-  }
-
-  public withJump(targetIndex: MeasureBeatIndex): this {
-    this.jump = new Jump(targetIndex);
-    return this;
   }
 };

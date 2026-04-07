@@ -1,8 +1,10 @@
+import { type Beat } from "@/model/beat";
 import { type Measure } from "@/model/measure";
-import { type Numbering } from "@/music";
+import { type Numbering, type Tempo, type TimeSignature } from "@/music";
 
 import type CompiledBeat from "./beat";
 import { SongStructureError } from "./errors";
+import { type MeasureBeatIndex } from "./measureBeatIndex";
 
 export default class CompiledMeasure {
   constructor(
@@ -23,7 +25,7 @@ export default class CompiledMeasure {
     }
 
     if (duration <= 0) {
-      throw new SongStructureError(`Invalid duration: ${duration}`, index);
+      throw new SongStructureError(`Measure cannot have a negative duration. This is likely a tempo change issue.`, index);
     }
   }
 

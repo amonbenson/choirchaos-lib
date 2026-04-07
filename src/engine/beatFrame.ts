@@ -1,4 +1,4 @@
-import type { Cut, Marker, Repeat } from "@/model/direction";
+import type { CutDirection, MarkerDirection, RepeatDirection } from "@/model/direction";
 import type { MeasureReference } from "@/model/measureReference";
 import type { Tempo, TimeSignature } from "@/music";
 import { BinarySortedList } from "@/utils/binarySearch";
@@ -13,9 +13,9 @@ export type BeatFrame = {
   tempo: Tempo;
   timeSignature: TimeSignature;
 
-  marker?: ResolvedDirection<Marker>;
-  repeat?: ResolvedDirection<Repeat>;
-  cut?: ResolvedDirection<Cut>;
+  marker?: ResolvedDirection<MarkerDirection>;
+  repeat?: ResolvedDirection<RepeatDirection>;
+  cut?: ResolvedDirection<CutDirection>;
 
   isRepeatEnd: boolean;
   isVampExit: boolean;
