@@ -189,7 +189,7 @@ export function compile(song: Song): CompiledSong {
 
           switch (repeatExit.type) {
             case "vamp":
-              exitPoint = flags.repeatIn;
+              exitPoint = flags.repeatIn && beatIndex === 0;
               break;
             case "vampOutAnyBar":
               exitPoint = beatIndex === 0 && measuresIntoVamp % repeatExit.every === 0;
@@ -205,8 +205,8 @@ export function compile(song: Song): CompiledSong {
             jumps.push({
               type: "vampExit",
               targetIndex: {
-                measure: measureIndex,
-                beat: beatIndex,
+                measure: repeat.outMeasureIndex,
+                beat: 0,
               },
               repeatIndex,
             });

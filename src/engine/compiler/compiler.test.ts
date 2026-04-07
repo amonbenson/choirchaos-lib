@@ -335,10 +335,10 @@ describe("compile", () => {
     }
 
     it("places a counted repeat on the center 3 measures of a 5-measure song", () => {
-      const rep = repeat(3, 2);
+      const repeatDir = repeat(3, 2);
       const result = compile(song(
         measure(beats(4)),
-        measure(beats(4), rep),
+        measure(beats(4), repeatDir),
         measure(beats(4)),
         measure(beats(4)),
         measure(beats(4)),
@@ -348,7 +348,7 @@ describe("compile", () => {
       expect(result.repeats).toHaveLength(1);
       expect(result.repeats[0].inMeasureIndex).toBe(1);
       expect(result.repeats[0].outMeasureIndex).toBe(4);
-      expect(result.repeats[0].sourceDirection).toEqual(rep);
+      expect(result.repeats[0].sourceDirection).toEqual(repeatDir);
 
       // Repeat field present only within the region (spot-check boundaries)
       expect(result.measures[0].repeat).toBeUndefined();
@@ -370,9 +370,9 @@ describe("compile", () => {
     });
 
     it("repeat starting on the first measure", () => {
-      const rep = repeat(2, 2);
+      const repeatDir = repeat(2, 2);
       const result = compile(song(
-        measure(beats(4), rep),
+        measure(beats(4), repeatDir),
         measure(beats(4)),
         measure(beats(4)),
       ));
@@ -389,9 +389,9 @@ describe("compile", () => {
     });
 
     it("repeat spanning all real measures places the jump in the final synthetic measure", () => {
-      const rep = repeat(3, 2);
+      const repeatDir = repeat(3, 2);
       const result = compile(song(
-        measure(beats(4), rep),
+        measure(beats(4), repeatDir),
         measure(beats(4)),
         measure(beats(4)),
       ));
@@ -426,57 +426,189 @@ describe("compile", () => {
   });
 
   describe("repeat and cut intersections", () => {
-    // Helpers scoped here to avoid polluting outer scope
-    function rep(length: number): RepeatDirection {
+    function countedRepeat(length: number): RepeatDirection {
       return { type: "repeat", length, exit: { type: "count", iterations: 2 }, safety: false };
     }
 
-    function cut(length: number): CutDirection {
+    function cutOf(length: number): CutDirection {
       return { type: "cut", length };
     }
 
     it("throws when a cut is fully within a repeat", () => {
       expect(() => compile(song(
-        measure(beats(4), rep(3)),
-        measure(beats(4), cut(1)),
+        measure(beats(4), countedRepeat(3)),
+        measure(beats(4), cutOf(1)),
         measure(beats(4)),
       ))).toThrow(SongStructureError);
     });
 
     it("throws when a repeat is fully within a cut", () => {
       expect(() => compile(song(
-        measure(beats(4), cut(3)),
-        measure(beats(4), rep(1)),
+        measure(beats(4), cutOf(3)),
+        measure(beats(4), countedRepeat(1)),
         measure(beats(4)),
       ))).toThrow(SongStructureError);
     });
 
     it("throws when a cut starts first and a repeat begins within it", () => {
       expect(() => compile(song(
-        measure(beats(4), cut(2)),
-        measure(beats(4), rep(1)),
+        measure(beats(4), cutOf(2)),
+        measure(beats(4), countedRepeat(1)),
       ))).toThrow(SongStructureError);
     });
 
     it("throws when a repeat starts first and a cut begins within it", () => {
       expect(() => compile(song(
-        measure(beats(4), rep(2)),
-        measure(beats(4), cut(1)),
+        measure(beats(4), countedRepeat(2)),
+        measure(beats(4), cutOf(1)),
       ))).toThrow(SongStructureError);
     });
 
     it("does not throw when a cut ends exactly where a repeat begins", () => {
       expect(() => compile(song(
-        measure(beats(4), cut(1)),
-        measure(beats(4), rep(1)),
+        measure(beats(4), cutOf(1)),
+        measure(beats(4), countedRepeat(1)),
       ))).not.toThrow();
     });
 
     it("does not throw when a repeat ends exactly where a cut begins", () => {
       expect(() => compile(song(
-        measure(beats(4), rep(1)),
-        measure(beats(4), cut(1)),
+        measure(beats(4), countedRepeat(1)),
+        measure(beats(4), cutOf(1)),
       ))).not.toThrow();
+    });
+  });
+
+  describe("vamp repeats", () => {
+    function vampRepeat(length: number): RepeatDirection {
+      return { type: "repeat", length, exit: { type: "vamp" }, safety: false };
+    }
+
+    function anyBarRepeat(length: number, every: number): RepeatDirection {
+      return { type: "repeat", length, exit: { type: "vampOutAnyBar", every }, safety: false };
+    }
+
+    function anyBeatRepeat(length: number, every: number): RepeatDirection {
+      return { type: "repeat", length, exit: { type: "vampOutAnyBeat", every }, safety: false };
+    }
+
+    describe("vamp", () => {
+      it("places a vampExit only at the first beat of the first measure", () => {
+        // Repeat on m0, length 2; out at m2
+        const result = compile(song(
+          measure(beats(4), vampRepeat(2)),
+          measure(beats(4)),
+          measure(beats(4)),
+        ));
+
+        const outIndex = { measure: 2, beat: 0 };
+
+        // VampExit only at beat 0 of the first measure
+        expect(result.measures[0].beats[0].jumps).toHaveLength(1);
+        expect(result.measures[0].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
+
+        // No vampExit on subsequent beats of m0 or any beat of m1
+        expect(result.measures[0].beats[1].jumps).toHaveLength(0);
+        expect(result.measures[1].beats[0].jumps).toHaveLength(0);
+
+        // Regular repeat jump at out measure
+        expect(result.measures[2].beats[0].jumps).toHaveLength(1);
+        expect(result.measures[2].beats[0].jumps[0]).toEqual({ type: "repeat", targetIndex: { measure: 0, beat: 0 }, repeatIndex: 0 });
+      });
+    });
+
+    describe("vampOutAnyBar", () => {
+      it("exits at beat 0 of every measure when every=1", () => {
+        // Repeat on m0, length 3; out at m3
+        const result = compile(song(
+          measure(beats(4), anyBarRepeat(3, 1)),
+          measure(beats(4)),
+          measure(beats(4)),
+          measure(beats(4)),
+        ));
+
+        const outIndex = { measure: 3, beat: 0 };
+        const vampExit = { type: "vampExit", targetIndex: outIndex, repeatIndex: 0 };
+
+        expect(result.measures[0].beats[0].jumps[0]).toEqual(vampExit);
+        expect(result.measures[1].beats[0].jumps[0]).toEqual(vampExit);
+        expect(result.measures[2].beats[0].jumps[0]).toEqual(vampExit);
+
+        // No exit on non-first beats
+        expect(result.measures[0].beats[1].jumps).toHaveLength(0);
+      });
+
+      it("exits at beat 0 of every 2nd measure when every=2", () => {
+        // Repeat on m0, length 4; out at m4
+        const result = compile(song(
+          measure(beats(4), anyBarRepeat(4, 2)),
+          measure(beats(4)),
+          measure(beats(4)),
+          measure(beats(4)),
+          measure(beats(4)),
+        ));
+
+        const outIndex = { measure: 4, beat: 0 };
+
+        // MeasuresIntoVamp 0 and 2 → exits; 1 and 3 → no exits
+        expect(result.measures[0].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
+        expect(result.measures[1].beats[0].jumps).toHaveLength(0);
+        expect(result.measures[2].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
+        expect(result.measures[3].beats[0].jumps).toHaveLength(0);
+      });
+
+      it("counts measures relative to the repeat start, not the song start", () => {
+        // Repeat starts at m2 with every=2; exits at m2 and m4, not m3
+        const result = compile(song(
+          measure(beats(4)),
+          measure(beats(4)),
+          measure(beats(4), anyBarRepeat(3, 2)),
+          measure(beats(4)),
+          measure(beats(4)),
+          measure(beats(4)),
+        ));
+
+        const outIndex = { measure: 5, beat: 0 };
+
+        // MeasuresIntoVamp: m2→0 (exit), m3→1 (no exit), m4→2 (exit)
+        expect(result.measures[2].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
+        expect(result.measures[3].beats[0].jumps).toHaveLength(0);
+        expect(result.measures[4].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
+      });
+    });
+
+    describe("vampOutAnyBeat", () => {
+      it("exits at every beat when every=1", () => {
+        // Repeat on m0, length 1; out at m1
+        const result = compile(song(
+          measure(beats(4), anyBeatRepeat(1, 1)),
+          measure(beats(4)),
+        ));
+
+        const outIndex = { measure: 1, beat: 0 };
+
+        expect(result.measures[0].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
+        expect(result.measures[0].beats[3].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
+      });
+
+      it("exits at every 2nd beat per measure, with the counter restarting each bar", () => {
+        // Repeat on m0, length 2; out at m2
+        const result = compile(song(
+          measure(beats(4), anyBeatRepeat(2, 2)),
+          measure(beats(4)),
+          measure(beats(4)),
+        ));
+
+        const outIndex = { measure: 2, beat: 0 };
+
+        // Beats 0 and 2 exit, beats 1 and 3 do not — counter restarts on m1
+        expect(result.measures[0].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
+        expect(result.measures[0].beats[1].jumps).toHaveLength(0);
+        expect(result.measures[0].beats[2].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
+        expect(result.measures[0].beats[3].jumps).toHaveLength(0);
+        expect(result.measures[1].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
+        expect(result.measures[1].beats[1].jumps).toHaveLength(0);
+      });
     });
   });
 });
