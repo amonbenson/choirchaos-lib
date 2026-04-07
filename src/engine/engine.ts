@@ -1,15 +1,10 @@
-import { type CutDirection, type MarkerDirection, type MeasureDirection, type RepeatDirection } from "@/model/direction";
-import { type MeasureNumber } from "@/model/measure";
 import { type Song } from "@/model/song";
-import { DefaultTempo, DefaultTimeSignature, nextSequentialNumbering } from "@/music";
 import { Emitter, type Emitters, Property } from "@/utils/events";
 import { SetIntervalUpdater, type Updater } from "@/utils/updater";
 
-import { type BeatFrame, BeatTimeline } from "./beatFrame";
 import Compiler from "./compiler/compiler";
 import type CompiledSong from "./compiler/song";
 import { EngineStateError } from "./errors";
-import { type ResolvedDirection } from "./resolvedDirection";
 
 export default class Engine {
   private readonly emitters = {
@@ -81,7 +76,7 @@ export default class Engine {
     }
 
     // Compile the song
-    this.compiler.compile(song);
+    this.compiledSong = this.compiler.compile(this.song);
 
     // Reset the playback state
     this.playing.set(false);
@@ -93,7 +88,7 @@ export default class Engine {
 
   private reset(): void {
     this.song = undefined;
-    this.beats.clear();
+    this.compiledSong = undefined;
 
     this.playing.set(false);
     this.songTime.set(0);

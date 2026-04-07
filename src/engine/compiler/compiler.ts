@@ -18,6 +18,19 @@ type CompilerState = {
   measureNumber: Numbering;
   tempo: Tempo;
   timeSignature: TimeSignature;
+
+  markers: Marker[];
+  repeats: Repeat[];
+  cuts: Cut[];
+};
+
+type CompilerFlags = {
+  markerActive: boolean;
+  repeatActive: boolean;
+  repeatIn: boolean;
+  repeatOut: boolean;
+  cutActive: boolean;
+  cutIn: boolean;
 };
 
 export default class Compiler {
@@ -25,17 +38,9 @@ export default class Compiler {
   private state: CompilerState = Compiler.initialState();
 
   // Accumulated direction collections
-  private readonly markers: Marker[] = [];
-  private readonly repeats: Repeat[] = [];
-  private readonly cuts: Cut[] = [];
 
-  // Transient per-measure flags
-  private markerActive = false;
-  private repeatActive = false;
-  private repeatIn = false;
-  private repeatOut = false;
-  private cutActive = false;
-  private cutIn = false;
+  // Per-measure flags
+  private flags: CompilerFlags = Compiler.initialFlags();
 
   private static initialState(): CompilerState {
     return {
@@ -43,6 +48,21 @@ export default class Compiler {
       measureNumber: asNumbering("1"),
       tempo: DefaultTempo,
       timeSignature: DefaultTimeSignature,
+
+      markers: [],
+      repeats: [],
+      cuts: [],
+    };
+  }
+
+  private static initialFlags(): CompilerFlags {
+    return {
+      markerActive: false,
+      repeatActive: false,
+      repeatIn: false,
+      repeatOut: false,
+      cutActive: false,
+      cutIn: false,
     };
   }
 
@@ -54,6 +74,9 @@ export default class Compiler {
   }
 
   compile(song: Song): CompiledSong {
+    this.state = Compiler.initialState();
+    this.flags = Compiler.initialFlags();
+
     const compiledMeasures: CompiledMeasure[] = [];
 
     for (let measureIndex = 0; measureIndex < song.measures.length + 1; measureIndex++) {
@@ -62,15 +85,15 @@ export default class Compiler {
       compiledMeasures.push(this.compileMeasure(measure, measureIndex));
     }
 
-    if (this.cutActive) {
+    if (this.flags.cutActive) {
       throw new SongStructureError("Cut cannot last past the length of the song.");
     }
 
-    if (this.repeatActive) {
+    if (this.flags.repeatActive) {
       throw new SongStructureError("Repeat cannot last past the length of the song.");
     }
 
-    return new CompiledSong(song, compiledMeasures, this.markers, this.cuts, this.repeats);
+    return new CompiledSong(song, compiledMeasures, this.state.markers, this.state.cuts, this.state.repeats);
   }
 
   private compileMeasure(measure: Measure, measureIndex: number): CompiledMeasure {
@@ -79,19 +102,19 @@ export default class Compiler {
     }
 
     // Reset transient flags
-    this.markerActive = false;
-    this.repeatIn = false;
-    this.repeatOut = false;
-    this.cutIn = false;
+    this.flags.markerActive = false;
+    this.flags.repeatIn = false;
+    this.flags.repeatOut = false;
+    this.flags.cutIn = false;
 
     // Expire directions from the previous measure
-    if (this.repeatActive && this.repeats[this.repeats.length - 1].outMeasureIndex === measureIndex) {
-      this.repeatActive = false;
-      this.repeatOut = true;
+    if (this.flags.repeatActive && this.state.repeats[this.state.repeats.length - 1].outMeasureIndex === measureIndex) {
+      this.flags.repeatActive = false;
+      this.flags.repeatOut = true;
     }
 
-    if (this.cutActive && this.cuts[this.cuts.length - 1].outMeasureIndex === measureIndex) {
-      this.cutActive = false;
+    if (this.flags.cutActive && this.state.cuts[this.state.cuts.length - 1].outMeasureIndex === measureIndex) {
+      this.flags.cutActive = false;
     }
 
     // Process measure-level directions
@@ -101,33 +124,33 @@ export default class Compiler {
           this.state.measureNumber = direction.value;
           break;
         case "marker":
-          this.markers.push(new Marker(measureIndex, direction));
-          this.markerActive = true;
+          this.state.markers.push(new Marker(measureIndex, direction));
+          this.flags.markerActive = true;
           break;
         case "repeat":
-          if (this.repeatActive) {
+          if (this.flags.repeatActive) {
             throw new SongStructureError("Overlapping repeats.", measureIndex);
           }
 
-          this.repeats.push(new Repeat(measureIndex, measureIndex + direction.length, direction));
-          this.repeatActive = true;
-          this.repeatIn = true;
+          this.state.repeats.push(new Repeat(measureIndex, measureIndex + direction.length, direction));
+          this.flags.repeatActive = true;
+          this.flags.repeatIn = true;
           break;
         case "cut":
-          if (this.cutActive) {
+          if (this.flags.cutActive) {
             throw new SongStructureError("Overlapping cuts.", measureIndex);
           }
 
-          this.cuts.push(new Cut(measureIndex, measureIndex + direction.length, direction));
-          this.cutActive = true;
-          this.cutIn = true;
+          this.state.cuts.push(new Cut(measureIndex, measureIndex + direction.length, direction));
+          this.flags.cutActive = true;
+          this.flags.cutIn = true;
           break;
         default:
           throw new SongStructureError(`Invalid direction type: ${(direction as MeasureDirection).type}`, measureIndex);
       }
     }
 
-    if (this.repeatActive && this.cutActive) {
+    if (this.flags.repeatActive && this.flags.cutActive) {
       throw new SongStructureError("Overlapping repeat and cut. This is not supported.", measureIndex);
     }
 
@@ -154,9 +177,9 @@ export default class Compiler {
       compiledBeats,
       measureTime,
       measureDuration,
-      this.markerActive ? this.markers[this.markers.length - 1] : undefined,
-      this.repeatActive ? this.repeats[this.repeats.length - 1] : undefined,
-      this.cutActive ? this.cuts[this.cuts.length - 1] : undefined,
+      this.flags.markerActive ? this.state.markers[this.state.markers.length - 1] : undefined,
+      this.flags.repeatActive ? this.state.repeats[this.state.repeats.length - 1] : undefined,
+      this.flags.cutActive ? this.state.cuts[this.state.cuts.length - 1] : undefined,
     );
 
     this.state.measureNumber = nextSequentialNumbering(this.state.measureNumber);
@@ -209,24 +232,24 @@ export default class Compiler {
     const jumps: Jump[] = [];
 
     if (beatIndex === 0) {
-      if (this.cutIn) {
-        const cutIndex = this.cuts.length - 1;
+      if (this.flags.cutIn) {
+        const cutIndex = this.state.cuts.length - 1;
 
-        jumps.push(this.cuts[cutIndex].createJump(cutIndex));
+        jumps.push(this.state.cuts[cutIndex].createJump(cutIndex));
       }
 
-      if (this.repeatOut) {
-        const repeatIndex = this.repeats.length - 1;
+      if (this.flags.repeatOut) {
+        const repeatIndex = this.state.repeats.length - 1;
 
-        jumps.push(this.repeats[repeatIndex].createRepeatJump(repeatIndex));
+        jumps.push(this.state.repeats[repeatIndex].createRepeatJump(repeatIndex));
       }
     }
 
-    if (this.repeatActive) {
-      const repeatIndex = this.repeats.length - 1;
-      const repeat = this.repeats[repeatIndex];
+    if (this.flags.repeatActive) {
+      const repeatIndex = this.state.repeats.length - 1;
+      const repeat = this.state.repeats[repeatIndex];
 
-      if (repeat.isVampExit(measureIndex, beatIndex, this.repeatIn)) {
+      if (repeat.isVampExit(measureIndex, beatIndex, this.flags.repeatIn)) {
         jumps.push(repeat.createVampExitJump(repeatIndex));
       }
     }
