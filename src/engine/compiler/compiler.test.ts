@@ -1,24 +1,29 @@
 import { describe, expect, it } from "vitest";
 
 import { type Beat } from "@/model/beat";
-import { type BeatDirection, type TempoChangeDirection, type TimeSignatureChangeDirection } from "@/model/direction";
+import { type BeatDirection, type CutDirection, type MarkerDirection, type MeasureDirection, type TempoChangeDirection, type TimeSignatureChangeDirection } from "@/model/direction";
 import { type Measure } from "@/model/measure";
 import { createSong, type Song } from "@/model/song";
 import { type SongId } from "@/model/song";
 import { asNumbering, DefaultTempo, DefaultTimeSignature, QuarterNote } from "@/music";
 
 import { compile } from "./compiler";
+import { SongStructureError } from "./errors";
 
 function beat(...directions: BeatDirection[]): Beat {
   return { directions };
 }
 
-function measure(beats: Beat[]): Measure {
-  return { beats, directions: [] };
+function measure(beats: Beat[], ...directions: MeasureDirection[]): Measure {
+  return { beats, directions };
 }
 
 function song(...measures: Measure[]): Song {
   return { ...createSong("test" as SongId), measures };
+}
+
+function beats(n: number): Beat[] {
+  return Array.from({ length: n }, () => beat());
 }
 
 describe("compile", () => {
@@ -56,9 +61,9 @@ describe("compile", () => {
 
   it("compiles a 3-measure song with 4 beats each into 3 real measures plus a final measure", () => {
     const result = compile(song(
-      measure([beat(), beat(), beat(), beat()]),
-      measure([beat(), beat(), beat(), beat()]),
-      measure([beat(), beat(), beat(), beat()]),
+      measure(beats(4)),
+      measure(beats(4)),
+      measure(beats(4)),
     ));
 
     // 3 real measures + 1 synthetic final measure
@@ -124,8 +129,8 @@ describe("compile", () => {
     it("applies a tempo change on beat 0 of the first measure to the entire song", () => {
       // 60 BPM -> 1.0s per beat; both measures must reflect this: 4 beats × 1.0s = 4.0s each
       const result = compile(song(
-        measure([beat(tempo60), beat(), beat(), beat()]),
-        measure([beat(), beat(), beat(), beat()]),
+        measure([beat(tempo60), ...beats(3)]),
+        measure(beats(4)),
       ));
 
       expect(result.measures[0].duration).toBeCloseTo(4.0);
@@ -138,8 +143,8 @@ describe("compile", () => {
     it("applies a tempo change on beat 0 of a later measure from that measure onwards", () => {
       // M0: 120 BPM -> 4 × 0.5s = 2.0s; m1: 60 BPM -> 4 × 1.0s = 4.0s
       const result = compile(song(
-        measure([beat(), beat(), beat(), beat()]),
-        measure([beat(tempo60), beat(), beat(), beat()]),
+        measure(beats(4)),
+        measure([beat(tempo60), ...beats(3)]),
       ));
 
       expect(result.measures[0].duration).toBeCloseTo(2.0);
@@ -153,8 +158,8 @@ describe("compile", () => {
       // M0: beat 0 at 120 BPM -> 0.5s; beats 1-3 at 60 BPM -> 1.0s each; duration 3.5s
       // M1 inherits 60 BPM -> 4 × 1.0s = 4.0s, starts at 3.5s
       const result = compile(song(
-        measure([beat(), beat(tempo60), beat(), beat()]),
-        measure([beat(), beat(), beat(), beat()]),
+        measure([beat(), beat(tempo60), ...beats(2)]),
+        measure(beats(4)),
       ));
 
       expect(result.measures[0].beats[0].duration).toBeCloseTo(0.5);
@@ -175,14 +180,152 @@ describe("compile", () => {
     it("annotates beats with the active time signature and carries changes across measures", () => {
       // Beat 0 of m0: default 4/4; beat 1 changes to 3/4 and propagates through m1
       const result = compile(song(
-        measure([beat(), beat(timeSig34), beat(), beat()]),
-        measure([beat(), beat(), beat(), beat()]),
+        measure([beat(), beat(timeSig34), ...beats(2)]),
+        measure(beats(4)),
       ));
 
       expect(result.measures[0].beats[0].timeSignature).toEqual(DefaultTimeSignature);
       expect(result.measures[0].beats[1].timeSignature).toEqual(timeSig34.value);
       expect(result.measures[0].beats[2].timeSignature).toEqual(timeSig34.value);
       expect(result.measures[1].beats[0].timeSignature).toEqual(timeSig34.value);
+    });
+  });
+
+  describe("markers", () => {
+    const marker: MarkerDirection = { type: "marker", value: "Verse" };
+
+    it("marker on the first measure is present on m0 only", () => {
+      const result = compile(song(
+        measure(beats(4), marker),
+        measure(beats(4)),
+        measure(beats(4)),
+      ));
+
+      expect(result.measures[0].marker?.sourceDirection).toEqual(marker);
+      expect(result.measures[0].marker?.measureIndex).toBe(0);
+      expect(result.measures[1].marker).toBeUndefined();
+      expect(result.measures[2].marker).toBeUndefined();
+
+      expect(result.markers).toHaveLength(1);
+      expect(result.markers[0].sourceDirection).toEqual(marker);
+      expect(result.markers[0].measureIndex).toBe(0);
+    });
+
+    it("marker on the second measure is present on m1 only", () => {
+      const result = compile(song(
+        measure(beats(4)),
+        measure(beats(4), marker),
+        measure(beats(4)),
+      ));
+
+      expect(result.measures[0].marker).toBeUndefined();
+      expect(result.measures[1].marker?.sourceDirection).toEqual(marker);
+      expect(result.measures[1].marker?.measureIndex).toBe(1);
+      expect(result.measures[2].marker).toBeUndefined();
+    });
+
+    it("marker on the third measure is present on m2 only", () => {
+      const result = compile(song(
+        measure(beats(4)),
+        measure(beats(4)),
+        measure(beats(4), marker),
+      ));
+
+      expect(result.measures[0].marker).toBeUndefined();
+      expect(result.measures[1].marker).toBeUndefined();
+      expect(result.measures[2].marker?.sourceDirection).toEqual(marker);
+      expect(result.measures[2].marker?.measureIndex).toBe(2);
+    });
+  });
+
+  describe("cuts", () => {
+    const cut3: CutDirection = { type: "cut", length: 3 };
+    const cut1: CutDirection = { type: "cut", length: 1 };
+    const cut2: CutDirection = { type: "cut", length: 2 };
+
+    it("places a cut on the center 3 measures of a 5-measure song", () => {
+      const result = compile(song(
+        measure(beats(4)),
+        measure(beats(4), cut3),
+        measure(beats(4)),
+        measure(beats(4)),
+        measure(beats(4)),
+      ));
+
+      // Cuts list
+      expect(result.cuts).toHaveLength(1);
+      expect(result.cuts[0].inMeasureIndex).toBe(1);
+      expect(result.cuts[0].outMeasureIndex).toBe(4);
+      expect(result.cuts[0].sourceDirection).toEqual(cut3);
+
+      // Cut field present only within the region (spot-check boundaries)
+      expect(result.measures[0].cut).toBeUndefined();
+      expect(result.measures[1].cut).toBe(result.cuts[0]);
+      expect(result.measures[3].cut).toBe(result.cuts[0]);
+      expect(result.measures[4].cut).toBeUndefined();
+
+      // Jump on beat 0 of the first cut measure, targeting the out measure
+      expect(result.measures[1].beats[0].jumps).toHaveLength(1);
+      expect(result.measures[1].beats[0].jumps[0]).toEqual({
+        type: "cut",
+        targetIndex: { measure: 4, beat: 0 },
+        cutIndex: 0,
+      });
+      expect(result.measures[1].beats[1].jumps).toHaveLength(0);
+    });
+
+    it("cut starting on the first measure", () => {
+      const result = compile(song(
+        measure(beats(4), cut2),
+        measure(beats(4)),
+        measure(beats(4)),
+      ));
+
+      expect(result.cuts[0].inMeasureIndex).toBe(0);
+      expect(result.cuts[0].outMeasureIndex).toBe(2);
+      expect(result.measures[0].cut).toBe(result.cuts[0]);
+      expect(result.measures[2].cut).toBeUndefined();
+      expect(result.measures[0].beats[0].jumps[0]).toEqual({
+        type: "cut",
+        targetIndex: { measure: 2, beat: 0 },
+        cutIndex: 0,
+      });
+    });
+
+    it("cut ending on the last real measure", () => {
+      const result = compile(song(
+        measure(beats(4)),
+        measure(beats(4)),
+        measure(beats(4), cut1),
+      ));
+
+      expect(result.cuts[0].inMeasureIndex).toBe(2);
+      expect(result.cuts[0].outMeasureIndex).toBe(3);
+      expect(result.measures[2].cut).toBe(result.cuts[0]);
+      expect(result.measures[3].cut).toBeUndefined();
+      expect(result.measures[2].beats[0].jumps[0]).toEqual({
+        type: "cut",
+        targetIndex: { measure: 3, beat: 0 },
+        cutIndex: 0,
+      });
+    });
+
+    it("throws SongStructureError when a cut extends past the end of the song", () => {
+      const cutPastEnd: CutDirection = { type: "cut", length: 5 };
+
+      expect(() => compile(song(
+        measure(beats(4), cutPastEnd),
+        measure(beats(4)),
+      ))).toThrow(SongStructureError);
+    });
+
+    it("throws SongStructureError when two cuts overlap", () => {
+      expect(() => compile(song(
+        measure(beats(4), cut3),
+        measure(beats(4), cut2),
+        measure(beats(4)),
+        measure(beats(4)),
+      ))).toThrow(SongStructureError);
     });
   });
 });

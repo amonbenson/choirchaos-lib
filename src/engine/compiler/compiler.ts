@@ -90,12 +90,20 @@ export function compile(song: Song): CompiledSong {
           flags.markerActive = true;
           break;
         case "repeat":
+          if (flags.repeatActive) {
+            throw new SongStructureError("Overlapping repeats.", measureIndex);
+          }
+
           repeats.push(new Repeat(measureIndex, measureIndex + direction.length, direction));
           flags.repeatActive = true;
           flags.repeatIn = true;
           break;
         case "cut":
-          cuts.push(new Cut(measureIndex, measureIndex + length, direction));
+          if (flags.cutActive) {
+            throw new SongStructureError("Overlapping cuts.", measureIndex);
+          }
+
+          cuts.push(new Cut(measureIndex, measureIndex + direction.length, direction));
           flags.cutActive = true;
           flags.cutIn = true;
           break;
@@ -106,7 +114,7 @@ export function compile(song: Song): CompiledSong {
 
     // Validate flags
     if (flags.repeatActive && flags.cutActive) {
-      throw new SongStructureError("Overlapping repeat and cut.", measureIndex);
+      throw new SongStructureError("Overlapping repeat and cut. This is not supported.", measureIndex);
     }
 
     // Handle each beat
