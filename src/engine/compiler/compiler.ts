@@ -8,7 +8,7 @@ import Cut from "./cut";
 import { SongStructureError } from "./errors";
 import { type Jump } from "./jump";
 import Marker from "./marker";
-import CompiledMeasure, { FinalMeasure } from "./measure";
+import CompiledMeasure from "./measure";
 import Repeat from "./repeat";
 import CompiledSong from "./song";
 
@@ -232,6 +232,9 @@ export function compile(song: Song): CompiledSong {
       compiledBeats,
       measureTime,
       measureDuration,
+      flags.markerActive ? markers[markers.length - 1] : undefined,
+      flags.repeatActive ? repeats[repeats.length - 1] : undefined,
+      flags.cutActive ? cuts[cuts.length - 1] : undefined,
     ));
 
     measureNumber = nextSequentialNumbering(measureNumber);

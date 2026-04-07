@@ -1,10 +1,11 @@
-import { type Beat } from "@/model/beat";
 import { type Measure } from "@/model/measure";
-import { type Numbering, type Tempo, type TimeSignature } from "@/music";
+import { type Numbering } from "@/music";
 
 import type CompiledBeat from "./beat";
+import type Cut from "./cut";
 import { SongStructureError } from "./errors";
-import { type MeasureBeatIndex } from "./measureBeatIndex";
+import type Marker from "./marker";
+import type Repeat from "./repeat";
 
 export default class CompiledMeasure {
   constructor(
@@ -15,6 +16,10 @@ export default class CompiledMeasure {
 
     public readonly time: number,
     public readonly duration: number,
+
+    public readonly marker?: Marker,
+    public readonly repeat?: Repeat,
+    public readonly cut?: Cut,
   ) {
     if (index < 0) {
       throw new SongStructureError(`Invalid index: ${index}`);
