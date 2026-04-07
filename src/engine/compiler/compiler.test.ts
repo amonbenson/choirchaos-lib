@@ -601,7 +601,7 @@ describe("compile", () => {
 
         const outIndex = { measure: 2, beat: 0 };
 
-        // Beats 0 and 2 exit, beats 1 and 3 do not — counter restarts on m1
+        // Beats 0 and 2 exit, beats 1 and 3 do not - counter restarts on m1
         expect(result.measures[0].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
         expect(result.measures[0].beats[1].jumps).toHaveLength(0);
         expect(result.measures[0].beats[2].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });

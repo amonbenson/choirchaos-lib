@@ -1,5 +1,6 @@
 export { default as CompiledBeat } from "./beat";
 export { compile } from "./compiler";
+export { type MeasureCompilerState } from "./compilerState";
 export { default as Cut } from "./cut";
 export { CompilerError, CompilerStateError, SongStructureError } from "./errors";
 export { type CutJump, type Jump, type RepeatJump, type VampExitJump } from "./jump";

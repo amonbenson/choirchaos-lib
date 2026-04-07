@@ -25,7 +25,7 @@ function song(...measures: Measure[]): Song {
   return { ...createSong("test" as SongId), measures };
 }
 
-// A repeat (count-based) that extends past the end of a 1-measure song — useful as a generic invalid song
+// A repeat (count-based) that extends past the end of a 1-measure song - useful as a generic invalid song
 const invalidSong = song(
   measure([beat()], { type: "repeat", length: 3, exit: { type: "count", iterations: 2 }, safety: false }),
 );
