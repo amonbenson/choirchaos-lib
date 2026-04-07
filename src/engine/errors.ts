@@ -1,3 +1,5 @@
+import { type MeasureReference } from "@/model/measureReference";
+
 export class EngineError extends Error {
   constructor(message: string) {
     super(message);
@@ -6,7 +8,7 @@ export class EngineError extends Error {
 }
 
 export class SongStructureError extends EngineError {
-  constructor(message: string, public readonly measureIndex: number) {
+  constructor(message: string, public readonly measureReference: MeasureReference) {
     super(message);
     this.name = "SongStructureError";
   }

@@ -7,7 +7,7 @@ import { createSong, type Song } from "@/model/song";
 import { type SongId } from "@/model/song";
 import { QuarterNote } from "@/music";
 
-import { type BeatFrame } from "./beatFrame.js";
+import { type BeatFrame } from "./compiler/beat.js";
 import Engine from "./engine.js";
 import { SongStructureError } from "./errors.js";
 
