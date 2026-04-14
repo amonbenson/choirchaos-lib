@@ -9,7 +9,6 @@ import { asNumbering, DefaultTempo, DefaultTimeSignature, QuarterNote } from "@/
 
 import { compile } from "./compiler";
 import { SongStructureError } from "./errors";
-import type Frame from "./frame";
 
 function beat(...directions: BeatDirection[]): Beat {
   return { directions };
@@ -284,13 +283,15 @@ describe("compile", () => {
         measure(beats(4)),
       ));
 
-      expect(result.cuts[0].inMeasureIndex).toBe(0);
-      expect(result.cuts[0].outMeasureIndex).toBe(2);
-      expect(result.measures[0].cut).toBe(result.cuts[0]);
-      expect(result.measures[2].cut).toBeUndefined();
-      expect(result.measures[0].beats[0].jumps[0]).toEqual({
+      // 3 measures × 4 beats = 12 real frames; stop measure at frame 12
+      // Cut2: in at measure 0 (frame 0), out at measure 2 (frame 8)
+      expect(result.cuts[0].inFrameIndex).toBe(0);
+      expect(result.cuts[0].outFrameIndex).toBe(8);
+      expect(result.frames[0].cut).toBe(result.cuts[0]);
+      expect(result.frames[8].cut).toBeUndefined();
+      expect(result.frames[0].jumps[0]).toEqual({
         type: "cut",
-        targetIndex: { measure: 2, beat: 0 },
+        targetFrameIndex: 8,
         cutIndex: 0,
       });
     });
@@ -302,13 +303,14 @@ describe("compile", () => {
         measure(beats(4), cut1),
       ));
 
-      expect(result.cuts[0].inMeasureIndex).toBe(2);
-      expect(result.cuts[0].outMeasureIndex).toBe(3);
-      expect(result.measures[2].cut).toBe(result.cuts[0]);
-      expect(result.measures[3].cut).toBeUndefined();
-      expect(result.measures[2].beats[0].jumps[0]).toEqual({
+      // Cut1: in at measure 2 (frame 8), out at stop measure (frame 12)
+      expect(result.cuts[0].inFrameIndex).toBe(8);
+      expect(result.cuts[0].outFrameIndex).toBe(12);
+      expect(result.frames[8].cut).toBe(result.cuts[0]);
+      expect(result.frames[12].cut).toBeUndefined();
+      expect(result.frames[8].jumps[0]).toEqual({
         type: "cut",
-        targetIndex: { measure: 3, beat: 0 },
+        targetFrameIndex: 12,
         cutIndex: 0,
       });
     });
@@ -347,29 +349,30 @@ describe("compile", () => {
         measure(beats(4)),
       ));
 
-      // Repeats list
+      // 5 measures × 4 beats = 20 real frames; stop at frame 20
+      // Repeat: in at measure 1 (frame 4), out at measure 4 (frame 16)
       expect(result.repeats).toHaveLength(1);
-      expect(result.repeats[0].inFrameIndex).toBe(1);
-      expect(result.repeats[0].outFrameIndex).toBe(4);
+      expect(result.repeats[0].inFrameIndex).toBe(4);
+      expect(result.repeats[0].outFrameIndex).toBe(16);
       expect(result.repeats[0].sourceDirection).toEqual(repeatDir);
 
       // Repeat field present only within the region (spot-check boundaries)
-      expect(result.measures[0].repeat).toBeUndefined();
-      expect(result.measures[1].repeat).toBe(result.repeats[0]);
-      expect(result.measures[3].repeat).toBe(result.repeats[0]);
-      expect(result.measures[4].repeat).toBeUndefined();
+      expect(result.frames[0].repeat).toBeUndefined();
+      expect(result.frames[4].repeat).toBe(result.repeats[0]);
+      expect(result.frames[15].repeat).toBe(result.repeats[0]);
+      expect(result.frames[16].repeat).toBeUndefined();
 
       // Jump on beat 0 of the out measure, back to beat 0 of the in measure
-      expect(result.measures[4].beats[0].jumps).toHaveLength(1);
-      expect(result.measures[4].beats[0].jumps[0]).toEqual({
+      expect(result.frames[16].jumps).toHaveLength(1);
+      expect(result.frames[16].jumps[0]).toEqual({
         type: "repeat",
-        targetIndex: { measure: 1, beat: 0 },
+        targetFrameIndex: 4,
         repeatIndex: 0,
       });
-      expect(result.measures[4].beats[1].jumps).toHaveLength(0);
+      expect(result.frames[17].jumps).toHaveLength(0);
 
       // No vampExit jumps within the region
-      expect(result.measures[2].beats[0].jumps).toHaveLength(0);
+      expect(result.frames[8].jumps).toHaveLength(0);
     });
 
     it("repeat starting on the first measure", () => {
@@ -380,13 +383,14 @@ describe("compile", () => {
         measure(beats(4)),
       ));
 
+      // 3 measures × 4 beats = 12 real frames; repeat: in at frame 0, out at measure 2 (frame 8)
       expect(result.repeats[0].inFrameIndex).toBe(0);
-      expect(result.repeats[0].outFrameIndex).toBe(2);
-      expect(result.measures[0].repeat).toBe(result.repeats[0]);
-      expect(result.measures[2].repeat).toBeUndefined();
-      expect(result.measures[2].beats[0].jumps[0]).toEqual({
+      expect(result.repeats[0].outFrameIndex).toBe(8);
+      expect(result.frames[0].repeat).toBe(result.repeats[0]);
+      expect(result.frames[8].repeat).toBeUndefined();
+      expect(result.frames[8].jumps[0]).toEqual({
         type: "repeat",
-        targetIndex: { measure: 0, beat: 0 },
+        targetFrameIndex: 0,
         repeatIndex: 0,
       });
     });
@@ -399,14 +403,15 @@ describe("compile", () => {
         measure(beats(4)),
       ));
 
+      // 3 measures × 4 beats = 12 real frames; repeat: in at frame 0, out at stop frame (12)
       expect(result.repeats[0].inFrameIndex).toBe(0);
-      expect(result.repeats[0].outFrameIndex).toBe(3);
-      const stopMeasure = result.measures[3];
+      expect(result.repeats[0].outFrameIndex).toBe(12);
+      const stopFrame = result.frames[12];
 
-      expect(stopMeasure.beats[0].jumps).toHaveLength(1);
-      expect(stopMeasure.beats[0].jumps[0]).toEqual({
+      expect(stopFrame.jumps).toHaveLength(1);
+      expect(stopFrame.jumps[0]).toEqual({
         type: "repeat",
-        targetIndex: { measure: 0, beat: 0 },
+        targetFrameIndex: 0,
         repeatIndex: 0,
       });
     });
@@ -504,19 +509,18 @@ describe("compile", () => {
           measure(beats(4)),
         ));
 
-        const outIndex = { measure: 2, beat: 0 };
-
+        // 3 measures × 4 beats; repeat: in at frame 0, out at frame 8
         // VampExit only at beat 0 of the first measure
-        expect(result.measures[0].beats[0].jumps).toHaveLength(1);
-        expect(result.measures[0].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
+        expect(result.frames[0].jumps).toHaveLength(1);
+        expect(result.frames[0].jumps[0]).toEqual({ type: "vampExit", targetFrameIndex: 8, repeatIndex: 0 });
 
         // No vampExit on subsequent beats of m0 or any beat of m1
-        expect(result.measures[0].beats[1].jumps).toHaveLength(0);
-        expect(result.measures[1].beats[0].jumps).toHaveLength(0);
+        expect(result.frames[1].jumps).toHaveLength(0);
+        expect(result.frames[4].jumps).toHaveLength(0);
 
-        // Regular repeat jump at out measure
-        expect(result.measures[2].beats[0].jumps).toHaveLength(1);
-        expect(result.measures[2].beats[0].jumps[0]).toEqual({ type: "repeat", targetIndex: { measure: 0, beat: 0 }, repeatIndex: 0 });
+        // Regular repeat jump at out frame (measure 2, beat 0)
+        expect(result.frames[8].jumps).toHaveLength(1);
+        expect(result.frames[8].jumps[0]).toEqual({ type: "repeat", targetFrameIndex: 0, repeatIndex: 0 });
       });
     });
 
@@ -530,15 +534,15 @@ describe("compile", () => {
           measure(beats(4)),
         ));
 
-        const outIndex = { measure: 3, beat: 0 };
-        const vampExit = { type: "vampExit", targetIndex: outIndex, repeatIndex: 0 };
+        // 4 measures × 4 beats; repeat: in at frame 0, out at frame 12
+        const vampExit = { type: "vampExit", targetFrameIndex: 12, repeatIndex: 0 };
 
-        expect(result.measures[0].beats[0].jumps[0]).toEqual(vampExit);
-        expect(result.measures[1].beats[0].jumps[0]).toEqual(vampExit);
-        expect(result.measures[2].beats[0].jumps[0]).toEqual(vampExit);
+        expect(result.frames[0].jumps[0]).toEqual(vampExit);
+        expect(result.frames[4].jumps[0]).toEqual(vampExit);
+        expect(result.frames[8].jumps[0]).toEqual(vampExit);
 
         // No exit on non-first beats
-        expect(result.measures[0].beats[1].jumps).toHaveLength(0);
+        expect(result.frames[1].jumps).toHaveLength(0);
       });
 
       it("exits at beat 0 of every 2nd measure when every=2", () => {
@@ -551,13 +555,12 @@ describe("compile", () => {
           measure(beats(4)),
         ));
 
-        const outIndex = { measure: 4, beat: 0 };
-
+        // 5 measures × 4 beats; repeat: in at frame 0, out at frame 16
         // MeasuresIntoVamp 0 and 2 → exits; 1 and 3 → no exits
-        expect(result.measures[0].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
-        expect(result.measures[1].beats[0].jumps).toHaveLength(0);
-        expect(result.measures[2].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
-        expect(result.measures[3].beats[0].jumps).toHaveLength(0);
+        expect(result.frames[0].jumps[0]).toEqual({ type: "vampExit", targetFrameIndex: 16, repeatIndex: 0 });
+        expect(result.frames[4].jumps).toHaveLength(0);
+        expect(result.frames[8].jumps[0]).toEqual({ type: "vampExit", targetFrameIndex: 16, repeatIndex: 0 });
+        expect(result.frames[12].jumps).toHaveLength(0);
       });
 
       it("counts measures relative to the repeat start, not the song start", () => {
@@ -571,12 +574,11 @@ describe("compile", () => {
           measure(beats(4)),
         ));
 
-        const outIndex = { measure: 5, beat: 0 };
-
+        // 6 measures × 4 beats; repeat: in at measure 2 (frame 8), out at measure 5 (frame 20)
         // MeasuresIntoVamp: m2→0 (exit), m3→1 (no exit), m4→2 (exit)
-        expect(result.measures[2].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
-        expect(result.measures[3].beats[0].jumps).toHaveLength(0);
-        expect(result.measures[4].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
+        expect(result.frames[8].jumps[0]).toEqual({ type: "vampExit", targetFrameIndex: 20, repeatIndex: 0 });
+        expect(result.frames[12].jumps).toHaveLength(0);
+        expect(result.frames[16].jumps[0]).toEqual({ type: "vampExit", targetFrameIndex: 20, repeatIndex: 0 });
       });
     });
 
@@ -588,10 +590,9 @@ describe("compile", () => {
           measure(beats(4)),
         ));
 
-        const outIndex = { measure: 1, beat: 0 };
-
-        expect(result.measures[0].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
-        expect(result.measures[0].beats[3].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
+        // 2 measures × 4 beats; repeat: in at frame 0, out at frame 4
+        expect(result.frames[0].jumps[0]).toEqual({ type: "vampExit", targetFrameIndex: 4, repeatIndex: 0 });
+        expect(result.frames[3].jumps[0]).toEqual({ type: "vampExit", targetFrameIndex: 4, repeatIndex: 0 });
       });
 
       it("exits at every 2nd beat per measure, with the counter restarting each bar", () => {
@@ -602,15 +603,14 @@ describe("compile", () => {
           measure(beats(4)),
         ));
 
-        const outIndex = { measure: 2, beat: 0 };
-
+        // 3 measures × 4 beats; repeat: in at frame 0, out at frame 8
         // Beats 0 and 2 exit, beats 1 and 3 do not - counter restarts on m1
-        expect(result.measures[0].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
-        expect(result.measures[0].beats[1].jumps).toHaveLength(0);
-        expect(result.measures[0].beats[2].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
-        expect(result.measures[0].beats[3].jumps).toHaveLength(0);
-        expect(result.measures[1].beats[0].jumps[0]).toEqual({ type: "vampExit", targetIndex: outIndex, repeatIndex: 0 });
-        expect(result.measures[1].beats[1].jumps).toHaveLength(0);
+        expect(result.frames[0].jumps[0]).toEqual({ type: "vampExit", targetFrameIndex: 8, repeatIndex: 0 });
+        expect(result.frames[1].jumps).toHaveLength(0);
+        expect(result.frames[2].jumps[0]).toEqual({ type: "vampExit", targetFrameIndex: 8, repeatIndex: 0 });
+        expect(result.frames[3].jumps).toHaveLength(0);
+        expect(result.frames[4].jumps[0]).toEqual({ type: "vampExit", targetFrameIndex: 8, repeatIndex: 0 });
+        expect(result.frames[5].jumps).toHaveLength(0);
       });
     });
   });

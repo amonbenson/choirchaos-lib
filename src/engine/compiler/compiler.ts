@@ -65,7 +65,7 @@ export class CompilerState {
   getFrameByMeasureIndex(measureIndex: number): Frame {
     const frameIndex = this.measureFrameIndices[measureIndex];
     if (frameIndex === undefined) {
-      throw new CompilerStateError(`Invalid measureIndex: ${frameIndex}`);
+      throw new SongStructureError(`Direction extends past the end of the song.`);
     }
 
     const frame = this.frames[frameIndex];
@@ -228,6 +228,12 @@ export default class Compiler {
   }
 
   compileCutDirection(state: CompilerState, inFrame: Frame, outFrame: Frame, direction: CutDirection): void {
+    for (const existing of state.cuts) {
+      if (inFrame.index < existing.outFrameIndex && outFrame.index > existing.inFrameIndex) {
+        throw new SongStructureError("Overlapping cuts.");
+      }
+    }
+
     const cut = new Cut(inFrame.index, outFrame.index, direction);
 
     // Link cut to all frames
