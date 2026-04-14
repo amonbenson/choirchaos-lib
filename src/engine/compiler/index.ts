@@ -1,4 +1,4 @@
-export { default as CompiledBeat } from "./beat";
+export { default as CompiledBeat } from "./frame";
 export { compile } from "./compiler";
 export { default as Cut } from "./cut";
 export { CompilerError, CompilerStateError, SongStructureError } from "./errors";
@@ -7,4 +7,4 @@ export { default as Marker } from "./marker";
 export { default as CompiledMeasure } from "./measure";
 export { type MeasureBeatIndex } from "./measureBeatIndex";
 export { default as Repeat } from "./repeat";
-export { default as CompiledSong } from "./song";
+export { default as CompiledSong } from "./compiledSong";

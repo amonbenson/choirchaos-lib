@@ -138,17 +138,17 @@ describe("insertSorted", () => {
 describe("BinarySortedList", () => {
   it("initializes with sorted items", () => {
     const list = new BinarySortedList([5, 1, 3]);
-    expect(list.items()).toEqual([1, 3, 5]);
+    expect(list.getItems()).toEqual([1, 3, 5]);
   });
 
   it("inserts items and maintains sort order", () => {
     const list = new BinarySortedList([1, 3, 5]);
     list.insert(4);
-    expect(list.items()).toEqual([1, 3, 4, 5]);
+    expect(list.getItems()).toEqual([1, 3, 4, 5]);
     list.insert(0);
-    expect(list.items()).toEqual([0, 1, 3, 4, 5]);
+    expect(list.getItems()).toEqual([0, 1, 3, 4, 5]);
     list.insert(6);
-    expect(list.items()).toEqual([0, 1, 3, 4, 5, 6]);
+    expect(list.getItems()).toEqual([0, 1, 3, 4, 5, 6]);
   });
 
   it("searches for items using binarySearch", () => {
@@ -162,7 +162,7 @@ describe("BinarySortedList", () => {
     const comparator = (a: TestItem, b: TestItem): number => a.p - b.p;
     const list = new BinarySortedList(items, { comparator });
     list.insert({ p: 4 });
-    expect(list.items()).toEqual([
+    expect(list.getItems()).toEqual([
       { p: 1 }, { p: 3 }, { p: 4 }, { p: 5 },
     ]);
     expect(list.search({ p: 4 })).toEqual({ p: 4 });
@@ -172,7 +172,7 @@ describe("BinarySortedList", () => {
   it("clears all items", () => {
     const list = new BinarySortedList([1, 3, 5]);
     list.clear();
-    expect(list.items()).toEqual([]);
+    expect(list.getItems()).toEqual([]);
     expect(list.first()).toBeUndefined();
     expect(list.last()).toBeUndefined();
   });
@@ -181,14 +181,14 @@ describe("BinarySortedList", () => {
     const list = new BinarySortedList([1, 3, 5]);
     list.clear();
     list.insert(2);
-    expect(list.items()).toEqual([2]);
+    expect(list.getItems()).toEqual([2]);
   });
 
   it("sorts items after construction", () => {
     const arr = [{ p: 5 }, { p: 1 }, { p: 3 }];
     const comparator = (a: TestItem, b: TestItem): number => a.p - b.p;
     const list = new BinarySortedList(arr, { comparator });
-    expect(list.items()).toEqual([
+    expect(list.getItems()).toEqual([
       { p: 1 }, { p: 3 }, { p: 5 },
     ]);
   });

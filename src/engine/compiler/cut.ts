@@ -4,15 +4,15 @@ import { type CutJump } from "./jump";
 
 export default class Cut {
   constructor(
-    public readonly inMeasureIndex: number,
-    public readonly outMeasureIndex: number,
+    public readonly inFrameIndex: number,
+    public readonly outFrameIndex: number,
     public readonly sourceDirection: CutDirection,
   ) {}
 
   createJump(cutIndex: number): CutJump {
     return {
       type: "cut",
-      targetIndex: { measure: this.outMeasureIndex, beat: 0 },
+      targetFrameIndex: this.outFrameIndex,
       cutIndex,
     };
   }

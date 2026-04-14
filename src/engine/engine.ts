@@ -5,7 +5,7 @@ import { SetIntervalUpdater, type Updater } from "@/utils/updater";
 
 import { type CompiledBeat, type CompiledMeasure, type Marker, type MeasureBeatIndex, type Repeat } from "./compiler";
 import Compiler from "./compiler/compiler";
-import type CompiledSong from "./compiler/song";
+import type CompiledSong from "./compiler/compiledSong";
 import { EngineStateError } from "./errors";
 
 export default class Engine {

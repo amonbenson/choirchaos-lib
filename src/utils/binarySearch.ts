@@ -146,8 +146,8 @@ export type BinarySortedListOptions<T> = BinarySearchOptions<T, T> & InsertSorte
  * Represents a list that maintains its items in sorted order using a binary search comparator.
  */
 export class BinarySortedList<T> {
-  private _items: T[];
-  private _options: BinarySortedListOptions<T>;
+  private items: T[];
+  private options: BinarySortedListOptions<T>;
 
   /**
    * Creates an instance of the class with an optional array of items and options.
@@ -158,12 +158,16 @@ export class BinarySortedList<T> {
    * @param {Function} rest.comparator Optional comparator function for sorting items. Unlike the binarySearch comparator, this one must also be able to compare two items directly.
    */
   constructor(items: T[] = [], options: BinarySortedListOptions<T> = {}) {
-    this._options = options;
-    this._options.comparator = this._options.comparator ?? ((a, b) => Number(a) - Number(b));
-    this._items = Array.isArray(items) ? items : [];
+    this.options = options;
+    this.options.comparator = this.options.comparator ?? ((a, b) => Number(a) - Number(b));
+    this.items = Array.isArray(items) ? items : [];
 
     // Ensure the initial items are sorted
     this.sort();
+  }
+
+  get length(): number {
+    return this.items.length;
   }
 
   /**
@@ -171,7 +175,7 @@ export class BinarySortedList<T> {
    * @param {*} item The item to insert.
    */
   insert(item: T): void {
-    this._items = insertSorted(this._items, item, this._options);
+    this.items = insertSorted(this.items, item, this.options);
   }
 
   /**
@@ -181,11 +185,11 @@ export class BinarySortedList<T> {
    * @returns {*} The result of the binary search.
    */
   searchIndex<K = T>(keyItem: K, options: BinarySearchOptions<K, T> = {}): number {
-    return binarySearch(this._items, keyItem, { ...this._options as any, ...options });
+    return binarySearch(this.items, keyItem, { ...this.options as any, ...options });
   }
 
   search<K = T>(keyItem: K, options: BinarySearchOptions<K, T> = {}): T | undefined {
-    return this._items[this.searchIndex(keyItem, options)];
+    return this.items[this.searchIndex(keyItem, options)];
   }
 
   searchIndexRange<K = T>(from: K, to: K, options: BinarySearchOptions<K, T> = {}): [number, number] {
@@ -208,29 +212,33 @@ export class BinarySortedList<T> {
   searchRange<K = T>(from: K, to: K, options: BinarySearchOptions<K, T> = {}): T[] {
     const [a, b] = this.searchIndexRange(from, to, options);
     if (a === -1 && b === 1) {
-      return this._items.slice(0, 1); // Edge case, where slice(-1, 1) returns no items, although it should return the first item
+      return this.items.slice(0, 1); // Edge case, where slice(-1, 1) returns no items, although it should return the first item
     }
 
-    return this._items.slice(a, b);
+    return this.items.slice(a, b);
   }
 
   clear(): void {
-    this._items = [];
+    this.items = [];
   }
 
   sort(): void {
-    this._items.sort(this._options.comparator);
+    this.items.sort(this.options.comparator);
   }
 
-  items(): T[] {
-    return this._items;
+  getItems(): T[] {
+    return this.items;
+  }
+
+  at(index: number): T | undefined {
+    return this.items.at(index);
   }
 
   first(): T | undefined {
-    return this._items[0];
+    return this.at(0);
   }
 
   last(): T | undefined {
-    return this._items[this._items.length - 1];
+    return this.at(-1);
   }
 }
