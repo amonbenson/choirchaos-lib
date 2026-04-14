@@ -1,16 +1,14 @@
 import { type Beat } from "@/model/beat";
-import { type BeatDirection, type MeasureDirection } from "@/model/direction";
+import { type BeatDirection } from "@/model/direction";
 import { type Measure } from "@/model/measure";
 import { type Song } from "@/model/song";
 import { asNumbering, DefaultTempo, DefaultTimeSignature, nextSequentialNumbering, type Numbering, type Tempo, type TimeSignature } from "@/music";
 
-import { MeasureBeatIndex } from ".";
 import CompiledSong from "./compiledSong";
 import type Cut from "./cut";
-import { SongStructureError } from "./errors";
+import { CompilerStateError, SongStructureError } from "./errors";
 import Frame from "./frame";
 import { FrameList } from "./frame";
-import { type Jump } from "./jump";
 import type Marker from "./marker";
 import type Repeat from "./repeat";
 
@@ -46,7 +44,8 @@ import type Repeat from "./repeat";
 export class CompilerState {
   constructor(
     public frames: Frame[] = [],
-    public measureToFrameIndex: number[] = [],
+    public measureFrameIndices: number[] = [],
+
     public markers: Marker[] = [],
     public repeats: Repeat[] = [],
     public cuts: Cut[] = [],
@@ -54,10 +53,12 @@ export class CompilerState {
     public frameIndex: number = 0,
     public measureIndex: number = 0,
     public beatIndex: number = 0,
+
+    public measureFrameIndex: number = 0,
     public measureBeats: number = 0,
+    public measureNumber: Numbering = asNumbering("1"),
 
     public time: number = 0,
-    public measureNumber: Numbering = asNumbering("1"),
     public tempo: Tempo = DefaultTempo,
     public timeSignature: TimeSignature = DefaultTimeSignature,
   ) {}
@@ -78,38 +79,65 @@ export default class Compiler {
   compile(song: Readonly<Song>): CompiledSong {
     const state = new CompilerState();
 
-    // Insert frames for each measure
+    // Compile frames for each measure
     for (state.measureIndex = 0; state.measureIndex < song.measures.length; state.measureIndex++) {
       const measure = song.measures[state.measureIndex];
-
-      state.measureToFrameIndex.push(state.frameIndex);
-      state.measureBeats = measure.beats.length;
-
       this.compileMeasure(state, measure);
-
-      // Increment automatic measure numbering
-      state.measureNumber = nextSequentialNumbering(state.measureNumber);
     }
 
     // Insert stop measure
     this.compileMeasure(state, Compiler.stopMeasure());
 
-    if (state.flags.cutRemainingMeasures > 0) {
-      throw new SongStructureError("Cut cannot last past the length of the song.");
-    }
+    // If (state.flags.cutRemainingMeasures > 0) {
+    //   throw new SongStructureError("Cut cannot last past the length of the song.");
+    // }
 
-    if (state.flags.repeatRemainingMeasures > 0) {
-      throw new SongStructureError("Repeat cannot last past the length of the song.");
-    }
+    // if (state.flags.repeatRemainingMeasures > 0) {
+    //   throw new SongStructureError("Repeat cannot last past the length of the song.");
+    // }
 
-    return new CompiledSong(song, new FrameList(frames), state.markers, state.cuts, state.repeats);
+    return new CompiledSong(
+      song,
+      new FrameList(state.frames),
+      state.markers,
+      state.cuts,
+      state.repeats,
+    );
   }
 
   compileMeasure(state: CompilerState, measure: Measure): void {
+    // Validate and store measure state information
+    if (measure.beats.length === 0) {
+      throw new SongStructureError(`Measure must contain at least one beat.`, state.measureIndex);
+    }
+
+    if (state.measureFrameIndices.length !== state.measureIndex) {
+      throw new CompilerStateError(`Out of sync: frame indices length (${state.measureFrameIndices.length}) should match measure index (${state.measureIndex})`);
+    }
+
+    state.measureFrameIndices.push(state.frameIndex);
+    state.measureFrameIndex = state.frameIndex;
+    state.measureBeats = measure.beats.length;
+
+    // Handle measure-number changes
+    for (const direction of measure.directions) {
+      switch (direction.type) {
+        case "measureNumberChange":
+          state.measureNumber = asNumbering(direction.value);
+          break;
+        default:
+          break;
+      }
+    }
+
+    // Compile each beat into a separate frame
     for (state.beatIndex = 0; state.beatIndex < measure.beats.length; state.beatIndex++) {
       const beat = measure.beats[state.beatIndex];
       this.compileBeat(state, beat);
     }
+
+    // Increment automatic measure numbering
+    state.measureNumber = nextSequentialNumbering(state.measureNumber);
   }
 
   compileBeat(state: CompilerState, beat: Beat): void {
@@ -130,11 +158,13 @@ export default class Compiler {
     // Calculate beat duration using the current bpm
     const duration = 60 / state.tempo.bpm;
 
+    // Create a frame for this beat
     const frame = new Frame(
       state.frameIndex++,
       state.measureIndex,
       state.beatIndex,
       state.measureNumber,
+      state.measureFrameIndex,
       state.measureBeats,
       state.time,
       duration,
@@ -142,9 +172,10 @@ export default class Compiler {
       state.timeSignature,
     );
 
-    state.time += duration;
-
     state.frames.push(frame);
+
+    // Update time
+    state.time += duration;
   }
 
   // Private compileMeasure(state: CompilerState, measure: Readonly<Measure>): Frame[] {

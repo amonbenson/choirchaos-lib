@@ -1,6 +1,4 @@
-import { type Tempo, type TimeSignature } from "@/music";
-
-import { type MeasureNumber } from "./measure";
+import { type Numbering, type Tempo, type TimeSignature } from "@/music";
 
 export type TempoChangeDirection = {
   type: "tempoChange";
@@ -16,7 +14,7 @@ export type BeatDirection = TempoChangeDirection | TimeSignatureChangeDirection;
 
 export type MeasureNumberChangeDirection = {
   type: "measureNumberChange";
-  value: MeasureNumber;
+  value: Numbering;
 };
 
 export type MarkerDirection = {

@@ -9,6 +9,7 @@ import { asNumbering, DefaultTempo, DefaultTimeSignature, QuarterNote } from "@/
 
 import { compile } from "./compiler";
 import { SongStructureError } from "./errors";
+import type Frame from "./frame";
 
 function beat(...directions: BeatDirection[]): Beat {
   return { directions };
@@ -27,96 +28,101 @@ function beats(n: number): Beat[] {
 }
 
 describe("compile", () => {
-  it("compiles an empty song into a single stop measure with one beat and default settings", () => {
+  it("compiles an empty song into a single stop frame with default settings", () => {
     const emptySong = song();
     const result = compile(emptySong);
 
     // Exactly one measure - the synthetic stop measure
-    expect(result.measures).toHaveLength(1);
+    expect(result.frames.length).toBe(1);
 
-    const measure = result.measures[0];
+    const frame = result.frames.at(0)!;
 
-    expect(measure.index).toBe(0);
-    expect(measure.number).toBe(asNumbering("1"));
-    expect(measure.time).toBe(0);
-    // Default tempo: 120 BPM -> 60/120 = 0.5s per beat
-    expect(measure.duration).toBeCloseTo(0.5);
-    expect(measure.marker).toBeUndefined();
-    expect(measure.repeat).toBeUndefined();
-    expect(measure.cut).toBeUndefined();
+    expect(frame.index).toBe(0);
+    expect(frame.measureIndex).toBe(0);
+    expect(frame.beatIndex).toBe(0);
 
-    // Exactly one beat
-    expect(measure.beats).toHaveLength(1);
+    expect(frame.measureNumber).toBe(asNumbering("1"));
+    expect(frame.measureFrameIndex).toBe(0);
+    expect(frame.measureBeats).toBe(1);
 
-    const beat = measure.beats[0];
+    expect(frame.time).toBe(0);
+    expect(frame.duration).toBeCloseTo(0.5); // Default tempo: 120 BPM -> 60/120 = 0.5s per beat
 
-    expect(beat.index).toEqual({ measure: 0, beat: 0 });
-    expect(beat.time).toBe(0);
-    expect(beat.duration).toBeCloseTo(0.5);
-    expect(beat.tempo).toEqual(DefaultTempo);
-    expect(beat.timeSignature).toEqual(DefaultTimeSignature);
-    expect(beat.jumps).toHaveLength(0);
-    expect(result.duration).toBeCloseTo(0);
+    expect(frame.tempo).toEqual(DefaultTempo);
+    expect(frame.timeSignature).toEqual(DefaultTimeSignature);
+
+    expect(frame.marker).toBeUndefined();
+    expect(frame.cut).toBeUndefined();
+    expect(frame.repeat).toBeUndefined();
+
+    // Stop measure should not be counted
+    expect(result.duration).toBe(0);
   });
 
-  it("compiles a 3-measure song with 4 beats each into 3 real measures plus a stop measure", () => {
+  it("compiles a 3-measure song with 4 beats each into 12 frames plus a stop frame", () => {
     const result = compile(song(
       measure(beats(4)),
       measure(beats(4)),
       measure(beats(4)),
     ));
 
-    // 3 real measures + 1 synthetic stop measure
-    expect(result.measures).toHaveLength(4);
+    // 3*4 real beats + 1 synthetic stop measure
+    expect(result.frames).toHaveLength(13);
 
-    // Default tempo: 120 BPM -> 0.5s per beat, 2.0s per measure
-    const m0 = result.measures[0];
-    const m1 = result.measures[1];
-    const m2 = result.measures[2];
+    const m0b3 = result.frames.at(3)!;
+    const m1b0 = result.frames.at(4)!;
+    const m1b1 = result.frames.at(5)!;
+    const stopFrame = result.frames.at(12)!;
 
-    // Measure indices and numbering
-    expect(m0.index).toBe(0);
-    expect(m1.index).toBe(1);
-    expect(m2.index).toBe(2);
-    expect(m0.number).toBe(asNumbering("1"));
-    expect(m1.number).toBe(asNumbering("2"));
-    expect(m2.number).toBe(asNumbering("3"));
+    // Last beat of the first measure
+    expect(m0b3.index).toBe(3);
+    expect(m0b3.measureIndex).toBe(0);
+    expect(m0b3.beatIndex).toBe(3);
 
-    // Measure beat counts
-    expect(m0.beats).toHaveLength(4);
-    expect(m1.beats).toHaveLength(4);
-    expect(m2.beats).toHaveLength(4);
+    expect(m0b3.measureNumber).toBe(asNumbering("1"));
+    expect(m0b3.measureFrameIndex).toBe(0);
+    expect(m0b3.measureBeats).toBe(4);
 
-    // Measure times and durations
-    expect(m0.time).toBeCloseTo(0);
-    expect(m1.time).toBeCloseTo(2.0);
-    expect(m2.time).toBeCloseTo(4.0);
-    expect(m0.duration).toBeCloseTo(2.0);
-    expect(m1.duration).toBeCloseTo(2.0);
-    expect(m2.duration).toBeCloseTo(2.0);
+    expect(m0b3.time).toBeCloseTo(1.5);
+    expect(m0b3.duration).toBeCloseTo(0.5);
 
-    // Spot-check beat timing across measure boundaries: last beat of m1 and first beat of m2
-    const m1LastBeat = m1.beats[3];
-    const m2FirstBeat = m2.beats[0];
+    // First beat of the second measure
+    expect(m1b0.index).toBe(4);
+    expect(m1b0.measureIndex).toBe(1);
+    expect(m1b0.beatIndex).toBe(0);
 
-    expect(m1LastBeat.index).toEqual({ measure: 1, beat: 3 });
-    expect(m1LastBeat.time).toBeCloseTo(3.5);
-    expect(m1LastBeat.duration).toBeCloseTo(0.5);
-    expect(m1LastBeat.tempo).toEqual(DefaultTempo);
-    expect(m1LastBeat.timeSignature).toEqual(DefaultTimeSignature);
+    expect(m1b0.measureNumber).toBe(asNumbering("2"));
+    expect(m1b0.measureFrameIndex).toBe(4);
+    expect(m1b0.measureBeats).toBe(4);
 
-    expect(m2FirstBeat.index).toEqual({ measure: 2, beat: 0 });
-    expect(m2FirstBeat.time).toBeCloseTo(4.0);
-    expect(m2FirstBeat.duration).toBeCloseTo(0.5);
+    expect(m1b0.time).toBeCloseTo(2.0);
+    expect(m1b0.duration).toBeCloseTo(0.5);
 
-    // Stop measure starts right after the last real measure
-    const stopMeasure = result.measures[3];
+    // Second beat of the second measure
+    expect(m1b1.index).toBe(5);
+    expect(m1b1.measureIndex).toBe(1);
+    expect(m1b1.beatIndex).toBe(1);
 
-    expect(stopMeasure.index).toBe(3);
-    expect(stopMeasure.number).toBe(asNumbering("4"));
-    expect(stopMeasure.time).toBeCloseTo(6.0);
-    expect(stopMeasure.duration).toBeCloseTo(0.5);
-    expect(stopMeasure.beats).toHaveLength(1);
+    expect(m1b1.measureNumber).toBe(asNumbering("2"));
+    expect(m1b1.measureFrameIndex).toBe(4);
+    expect(m1b1.measureBeats).toBe(4);
+
+    expect(m1b1.time).toBeCloseTo(2.5);
+    expect(m1b1.duration).toBeCloseTo(0.5);
+
+    // Stop frame
+    expect(stopFrame.index).toBe(12);
+    expect(stopFrame.measureIndex).toBe(3);
+    expect(stopFrame.beatIndex).toBe(0);
+
+    expect(stopFrame.measureNumber).toBe(asNumbering("4"));
+    expect(stopFrame.measureFrameIndex).toBe(12);
+    expect(stopFrame.measureBeats).toBe(1);
+
+    expect(stopFrame.time).toBeCloseTo(6.0);
+    expect(stopFrame.duration).toBeCloseTo(0.5);
+
+    // Song duration = 3 * 2s
     expect(result.duration).toBeCloseTo(6.0);
   });
 

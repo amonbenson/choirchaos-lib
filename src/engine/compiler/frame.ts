@@ -1,6 +1,7 @@
 import { isNumbering, type Numbering, type Tempo, type TimeSignature } from "@/music";
 import { BinarySortedList } from "@/utils/binarySearch";
 
+import type Cut from "./cut";
 import { CompilerStateError, SongStructureError } from "./errors";
 import { type Jump } from "./jump";
 import type Marker from "./marker";
@@ -13,6 +14,7 @@ export default class Frame {
     public readonly beatIndex: number,
 
     public readonly measureNumber: Numbering,
+    public readonly measureFrameIndex: number,
     public readonly measureBeats: number,
 
     public readonly time: number,
@@ -23,6 +25,7 @@ export default class Frame {
 
     public readonly jumps: Jump[] = [],
     public readonly marker?: Marker,
+    public readonly cut?: Cut,
     public readonly repeat?: Repeat,
   ) {
     if (index < 0) {
