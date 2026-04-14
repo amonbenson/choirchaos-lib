@@ -8,7 +8,6 @@ import CompiledSong from "./compiledSong";
 import type Cut from "./cut";
 import { CompilerStateError, SongStructureError } from "./errors";
 import Frame from "./frame";
-import { FrameList } from "./frame";
 import type Marker from "./marker";
 import type Repeat from "./repeat";
 
@@ -98,7 +97,7 @@ export default class Compiler {
 
     return new CompiledSong(
       song,
-      new FrameList(state.frames),
+      state.frames,
       state.markers,
       state.cuts,
       state.repeats,
