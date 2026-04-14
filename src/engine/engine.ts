@@ -1,10 +1,8 @@
 import { type Song } from "@/model/song";
 import { type Numbering, type Tempo, type TimeSignature } from "@/music";
 import { type Event, Property } from "@/utils/events";
-import { type Updater } from "@/utils/updater";
 
-import type Clock from "./clock";
-import { SetIntervalClock } from "./clock";
+import { type Clock, SetIntervalClock } from "./clock";
 import type CompiledSong from "./compiler/compiledSong";
 import Compiler from "./compiler/compiler";
 import type Cut from "./compiler/cut";
