@@ -194,7 +194,7 @@ describe("compile", () => {
     });
   });
 
-  describe.todo("markers", () => {
+  describe("markers", () => {
     const marker: MarkerDirection = { type: "marker", value: "Verse" };
 
     it("marker on the first measure is present on m0 only", () => {
@@ -204,14 +204,14 @@ describe("compile", () => {
         measure(beats(4)),
       ));
 
-      expect(result.measures[0].marker?.sourceDirection).toEqual(marker);
-      expect(result.measures[0].marker?.measureIndex).toBe(0);
-      expect(result.measures[1].marker).toBeUndefined();
-      expect(result.measures[2].marker).toBeUndefined();
+      expect(result.frames[0].marker?.sourceDirection).toEqual(marker);
+      expect(result.frames[0].marker?.frameIndex).toBe(0);
+      expect(result.frames[1].marker?.frameIndex).toBe(0);
+      expect(result.frames[4].marker).toBeUndefined();
 
       expect(result.markers).toHaveLength(1);
       expect(result.markers[0].sourceDirection).toEqual(marker);
-      expect(result.markers[0].measureIndex).toBe(0);
+      expect(result.markers[0].frameIndex).toBe(0);
     });
 
     it("marker on the second measure is present on m1 only", () => {
@@ -221,10 +221,10 @@ describe("compile", () => {
         measure(beats(4)),
       ));
 
-      expect(result.measures[0].marker).toBeUndefined();
-      expect(result.measures[1].marker?.sourceDirection).toEqual(marker);
-      expect(result.measures[1].marker?.measureIndex).toBe(1);
-      expect(result.measures[2].marker).toBeUndefined();
+      expect(result.frames[3].marker).toBeUndefined();
+      expect(result.frames[4].marker?.frameIndex).toBe(4);
+      expect(result.frames[7].marker?.frameIndex).toBe(4);
+      expect(result.frames[8].marker).toBeUndefined();
     });
 
     it("marker on the third measure is present on m2 only", () => {
@@ -234,14 +234,14 @@ describe("compile", () => {
         measure(beats(4), marker),
       ));
 
-      expect(result.measures[0].marker).toBeUndefined();
-      expect(result.measures[1].marker).toBeUndefined();
-      expect(result.measures[2].marker?.sourceDirection).toEqual(marker);
-      expect(result.measures[2].marker?.measureIndex).toBe(2);
+      expect(result.frames[0].marker).toBeUndefined();
+      expect(result.frames[7].marker).toBeUndefined();
+      expect(result.frames[8].marker?.frameIndex).toBe(8);
+      expect(result.frames[11].marker?.frameIndex).toBe(8);
     });
   });
 
-  describe.todo("cuts", () => {
+  describe("cuts", () => {
     const cut3: CutDirection = { type: "cut", length: 3 };
     const cut1: CutDirection = { type: "cut", length: 1 };
     const cut2: CutDirection = { type: "cut", length: 2 };
@@ -257,24 +257,24 @@ describe("compile", () => {
 
       // Cuts list
       expect(result.cuts).toHaveLength(1);
-      expect(result.cuts[0].inMeasureIndex).toBe(1);
-      expect(result.cuts[0].outMeasureIndex).toBe(4);
+      expect(result.cuts[0].inFrameIndex).toBe(4);
+      expect(result.cuts[0].outFrameIndex).toBe(16);
       expect(result.cuts[0].sourceDirection).toEqual(cut3);
 
       // Cut field present only within the region (spot-check boundaries)
-      expect(result.measures[0].cut).toBeUndefined();
-      expect(result.measures[1].cut).toBe(result.cuts[0]);
-      expect(result.measures[3].cut).toBe(result.cuts[0]);
-      expect(result.measures[4].cut).toBeUndefined();
+      expect(result.frames[0].cut).toBeUndefined();
+      expect(result.frames[4].cut).toBe(result.cuts[0]);
+      expect(result.frames[12].cut).toBe(result.cuts[0]);
+      expect(result.frames[16].cut).toBeUndefined();
 
       // Jump on beat 0 of the first cut measure, targeting the out measure
-      expect(result.measures[1].beats[0].jumps).toHaveLength(1);
-      expect(result.measures[1].beats[0].jumps[0]).toEqual({
+      expect(result.frames[4].jumps).toHaveLength(1);
+      expect(result.frames[4].jumps[0]).toEqual({
         type: "cut",
-        targetIndex: { measure: 4, beat: 0 },
+        targetFrameIndex: 16,
         cutIndex: 0,
       });
-      expect(result.measures[1].beats[1].jumps).toHaveLength(0);
+      expect(result.frames[5].jumps).toHaveLength(0);
     });
 
     it("cut starting on the first measure", () => {
@@ -349,8 +349,8 @@ describe("compile", () => {
 
       // Repeats list
       expect(result.repeats).toHaveLength(1);
-      expect(result.repeats[0].inMeasureIndex).toBe(1);
-      expect(result.repeats[0].outMeasureIndex).toBe(4);
+      expect(result.repeats[0].inFrameIndex).toBe(1);
+      expect(result.repeats[0].outFrameIndex).toBe(4);
       expect(result.repeats[0].sourceDirection).toEqual(repeatDir);
 
       // Repeat field present only within the region (spot-check boundaries)
@@ -380,8 +380,8 @@ describe("compile", () => {
         measure(beats(4)),
       ));
 
-      expect(result.repeats[0].inMeasureIndex).toBe(0);
-      expect(result.repeats[0].outMeasureIndex).toBe(2);
+      expect(result.repeats[0].inFrameIndex).toBe(0);
+      expect(result.repeats[0].outFrameIndex).toBe(2);
       expect(result.measures[0].repeat).toBe(result.repeats[0]);
       expect(result.measures[2].repeat).toBeUndefined();
       expect(result.measures[2].beats[0].jumps[0]).toEqual({
@@ -399,8 +399,8 @@ describe("compile", () => {
         measure(beats(4)),
       ));
 
-      expect(result.repeats[0].inMeasureIndex).toBe(0);
-      expect(result.repeats[0].outMeasureIndex).toBe(3);
+      expect(result.repeats[0].inFrameIndex).toBe(0);
+      expect(result.repeats[0].outFrameIndex).toBe(3);
       const stopMeasure = result.measures[3];
 
       expect(stopMeasure.beats[0].jumps).toHaveLength(1);

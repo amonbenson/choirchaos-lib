@@ -14,11 +14,13 @@ export type BeatDirection = TempoChangeDirection | TimeSignatureChangeDirection;
 
 export type MeasureNumberChangeDirection = {
   type: "measureNumberChange";
+  length?: never;
   value: Numbering;
 };
 
 export type MarkerDirection = {
   type: "marker";
+  length?: never;
   value: string;
 };
 

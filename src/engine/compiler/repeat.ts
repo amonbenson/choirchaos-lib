@@ -4,20 +4,20 @@ import { type RepeatJump, type VampExitJump } from "./jump";
 
 export default class Repeat {
   constructor(
-    public readonly inMeasureIndex: number,
-    public readonly outMeasureIndex: number,
+    public readonly inFrameIndex: number,
+    public readonly outFrameIndex: number,
     public readonly sourceDirection: RepeatDirection,
   ) {}
 
-  isVampExit(measureIndex: number, beatIndex: number, isRepeatIn: boolean): boolean {
+  isVampExit(inMeasureIndex: number, measureIndex: number, beatIndex: number): boolean {
     const exit = this.sourceDirection.exit;
-    const measuresIntoVamp = measureIndex - this.inMeasureIndex;
+    const measuresIntoVamp = measureIndex - inMeasureIndex;
 
     switch (exit.type) {
       case "count":
         return false;
       case "vamp":
-        return isRepeatIn && beatIndex === 0;
+        return beatIndex === 0 && measuresIntoVamp === 0;
       case "vampOutAnyBar":
         return beatIndex === 0 && measuresIntoVamp % exit.every === 0;
       case "vampOutAnyBeat":
@@ -28,7 +28,7 @@ export default class Repeat {
   createRepeatJump(repeatIndex: number): RepeatJump {
     return {
       type: "repeat",
-      targetIndex: { measure: this.inMeasureIndex, beat: 0 },
+      targetFrameIndex: this.inFrameIndex,
       repeatIndex,
     };
   }
@@ -36,7 +36,7 @@ export default class Repeat {
   createVampExitJump(repeatIndex: number): VampExitJump {
     return {
       type: "vampExit",
-      targetIndex: { measure: this.outMeasureIndex, beat: 0 },
+      targetFrameIndex: this.outFrameIndex,
       repeatIndex,
     };
   }

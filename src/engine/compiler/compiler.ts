@@ -1,15 +1,15 @@
 import { type Beat } from "@/model/beat";
-import { type BeatDirection } from "@/model/direction";
+import { type BeatDirection, type CutDirection, type MarkerDirection, type MeasureDirection, type RepeatDirection } from "@/model/direction";
 import { type Measure } from "@/model/measure";
 import { type Song } from "@/model/song";
 import { asNumbering, DefaultTempo, DefaultTimeSignature, nextSequentialNumbering, type Numbering, type Tempo, type TimeSignature } from "@/music";
 
 import CompiledSong from "./compiledSong";
-import type Cut from "./cut";
+import Cut from "./cut";
 import { CompilerStateError, SongStructureError } from "./errors";
 import Frame from "./frame";
-import type Marker from "./marker";
-import type Repeat from "./repeat";
+import Marker from "./marker";
+import Repeat from "./repeat";
 
 // Type CompilerFlags = {
 //   markerActive: boolean;
@@ -61,6 +61,20 @@ export class CompilerState {
     public tempo: Tempo = DefaultTempo,
     public timeSignature: TimeSignature = DefaultTimeSignature,
   ) {}
+
+  getFrameByMeasureIndex(measureIndex: number): Frame {
+    const frameIndex = this.measureFrameIndices[measureIndex];
+    if (frameIndex === undefined) {
+      throw new CompilerStateError(`Invalid measureIndex: ${frameIndex}`);
+    }
+
+    const frame = this.frames[frameIndex];
+    if (!frame) {
+      throw new CompilerStateError(`Could not find frame for measureIndex: ${measureIndex}`);
+    }
+
+    return frame;
+  }
 }
 
 export default class Compiler {
@@ -87,13 +101,18 @@ export default class Compiler {
     // Insert stop measure
     this.compileMeasure(state, Compiler.stopMeasure());
 
-    // If (state.flags.cutRemainingMeasures > 0) {
-    //   throw new SongStructureError("Cut cannot last past the length of the song.");
-    // }
+    // Compile measure directions
+    for (state.measureIndex = 0; state.measureIndex < song.measures.length; state.measureIndex++) {
+      const measure = song.measures[state.measureIndex];
+      for (const direction of measure.directions) {
+        this.compileMeasureDirection(state, direction);
+      }
+    }
 
-    // if (state.flags.repeatRemainingMeasures > 0) {
-    //   throw new SongStructureError("Repeat cannot last past the length of the song.");
-    // }
+    // Consistency checks
+    if (state.measureFrameIndices.length !== song.measures.length + 1) {
+      throw new CompilerStateError(`Invalid measureFrameIndices.length: ${state.measureFrameIndices.length}`);
+    }
 
     return new CompiledSong(
       song,
@@ -111,7 +130,7 @@ export default class Compiler {
     }
 
     if (state.measureFrameIndices.length !== state.measureIndex) {
-      throw new CompilerStateError(`Out of sync: frame indices length (${state.measureFrameIndices.length}) should match measure index (${state.measureIndex})`);
+      throw new CompilerStateError(`measureFrameIndices.length (${state.measureFrameIndices.length}) should match measureIndex (${state.measureIndex})`);
     }
 
     state.measureFrameIndices.push(state.frameIndex);
@@ -175,6 +194,76 @@ export default class Compiler {
 
     // Update time
     state.time += duration;
+  }
+
+  compileMeasureDirection(state: CompilerState, direction: MeasureDirection): void {
+    const inFrame = state.getFrameByMeasureIndex(state.measureIndex);
+    const outFrame = state.getFrameByMeasureIndex(state.measureIndex + (direction.length ?? 1));
+
+    switch (direction.type) {
+      case "marker":
+        this.compileMarkerDirection(state, inFrame, outFrame, direction);
+        break;
+      case "cut":
+        this.compileCutDirection(state, inFrame, outFrame, direction);
+        break;
+      case "repeat":
+        this.compileRepeatDirection(state, inFrame, outFrame, direction);
+        break;
+      default:
+        throw new CompilerStateError(`Measure direction ${direction.type} cannot be compiled separately.`);
+    }
+  }
+
+  compileMarkerDirection(state: CompilerState, inFrame: Frame, outFrame: Frame, direction: MarkerDirection): void {
+    const marker = new Marker(inFrame.index, direction);
+
+    // Link marker to all frames
+    for (let frameIndex = inFrame.index; frameIndex < outFrame.index; frameIndex++) {
+      state.frames[frameIndex].marker = marker;
+    }
+
+    // Add marker to state
+    state.markers.push(marker);
+  }
+
+  compileCutDirection(state: CompilerState, inFrame: Frame, outFrame: Frame, direction: CutDirection): void {
+    const cut = new Cut(inFrame.index, outFrame.index, direction);
+
+    // Link cut to all frames
+    for (let frameIndex = inFrame.index; frameIndex < outFrame.index; frameIndex++) {
+      state.frames[frameIndex].cut = cut;
+    }
+
+    // Add cut-jump to in frame
+    const jump = cut.createJump(state.cuts.length);
+    inFrame.jumps.push(jump);
+
+    // Add cut to state
+    state.cuts.push(cut);
+  }
+
+  compileRepeatDirection(state: CompilerState, inFrame: Frame, outFrame: Frame, direction: RepeatDirection): void {
+    const repeat = new Repeat(inFrame.index, outFrame.index, direction);
+
+    for (let frameIndex = inFrame.index; frameIndex < outFrame.index; frameIndex++) {
+      const frame = state.frames[frameIndex];
+
+      // Add vamp-exit-jump to potential exit frames
+      if (repeat.isVampExit(inFrame.measureIndex, frame.measureIndex, frame.beatIndex)) {
+        frame.jumps.push(repeat.createVampExitJump(state.repeats.length));
+      }
+
+      // Link repeat to frame
+      state.frames[frameIndex].repeat = repeat;
+    }
+
+    // Add repeat-jump to out frame
+    const jump = repeat.createRepeatJump(state.repeats.length);
+    outFrame.jumps.push(jump);
+
+    // Add repeat to state
+    state.repeats.push(repeat);
   }
 
   // Private compileMeasure(state: CompilerState, measure: Readonly<Measure>): Frame[] {

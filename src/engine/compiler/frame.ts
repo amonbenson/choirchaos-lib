@@ -23,10 +23,10 @@ export default class Frame {
     public readonly tempo: Tempo,
     public readonly timeSignature: TimeSignature,
 
-    public readonly jumps: Jump[] = [],
-    public readonly marker?: Marker,
-    public readonly cut?: Cut,
-    public readonly repeat?: Repeat,
+    public marker?: Marker,
+    public cut?: Cut,
+    public repeat?: Repeat,
+    public jumps: Jump[] = [],
   ) {
     if (index < 0) {
       throw new CompilerStateError(`Invalid frame index: ${index}`);
