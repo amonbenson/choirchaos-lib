@@ -34,7 +34,7 @@ const simpleSong = song(
 
 // --- Tests ---
 
-describe.todo("Engine", () => {
+describe("Engine", () => {
   describe("load", () => {
     it("becomes ready after loading a song", () => {
       const engine = new Engine();
@@ -44,11 +44,15 @@ describe.todo("Engine", () => {
       expect(engine.isReady()).toBe(true);
     });
 
-    it("fires onReady when a song is loaded", () => {
+    it("fires onReadyChange(true) when a song is loaded", () => {
       const engine = new Engine();
       const onReady = vi.fn();
 
-      engine.onReady(onReady);
+      engine.onReadyChange((isReady) => {
+        if (isReady) {
+          onReady();
+        }
+      });
       engine.load(simpleSong);
 
       expect(onReady).toHaveBeenCalledOnce();
@@ -58,41 +62,46 @@ describe.todo("Engine", () => {
       const engine = new Engine();
       const onUnloaded = vi.fn();
 
-      engine.onUnload(onUnloaded);
+      engine.onReadyChange((isReady) => {
+        if (!isReady) {
+          onUnloaded();
+        }
+      });
       engine.load(song(measure([beat()])));
       engine.load(song(measure([beat()])));
 
       expect(onUnloaded).toHaveBeenCalledOnce();
     });
 
-    it("fires onReady for each loaded song", () => {
+    it("fires onReadyChange(true) for each loaded song", () => {
       const engine = new Engine();
       const onReady = vi.fn();
 
-      engine.onReady(onReady);
+      engine.onReadyChange((isReady) => {
+        if (isReady) {
+          onReady();
+        }
+      });
       engine.load(song(measure([beat()])));
       engine.load(song(measure([beat()])));
 
       expect(onReady).toHaveBeenCalledTimes(2);
     });
 
-    it("fires onError and not onUnloaded when the song is invalid", () => {
+    it("throws and does not fire onReadyChange when the song is invalid", () => {
       const engine = new Engine();
-      const onError = vi.fn();
-      const onUnloaded = vi.fn();
+      const onChange = vi.fn();
 
-      engine.onError(onError);
-      engine.onUnload(onUnloaded);
-      engine.load(invalidSong);
+      engine.onReadyChange(onChange);
 
-      expect(onError).toHaveBeenCalledOnce();
-      expect(onUnloaded).not.toHaveBeenCalled();
+      expect(() => engine.load(invalidSong)).toThrow();
+      expect(onChange).not.toHaveBeenCalled();
     });
 
     it("is not ready after a failed load", () => {
       const engine = new Engine();
 
-      engine.load(invalidSong);
+      expect(() => engine.load(invalidSong)).toThrow();
 
       expect(engine.isReady()).toBe(false);
     });
@@ -101,8 +110,12 @@ describe.todo("Engine", () => {
       const engine = new Engine();
       const onReady = vi.fn();
 
-      engine.onReady(onReady);
-      engine.load(invalidSong);
+      engine.onReadyChange((isReady) => {
+        if (isReady) {
+          onReady();
+        }
+      });
+      expect(() => engine.load(invalidSong)).toThrow();
       engine.load(simpleSong);
 
       expect(onReady).toHaveBeenCalledOnce();
@@ -120,11 +133,15 @@ describe.todo("Engine", () => {
       expect(engine.isReady()).toBe(false);
     });
 
-    it("fires onUnloaded when a song is unloaded", () => {
+    it("fires onReadyChange(false) when a song is unloaded", () => {
       const engine = new Engine();
       const onUnloaded = vi.fn();
 
-      engine.onUnload(onUnloaded);
+      engine.onReadyChange((isReady) => {
+        if (!isReady) {
+          onUnloaded();
+        }
+      });
       engine.load(simpleSong);
       engine.unload();
 
@@ -135,17 +152,25 @@ describe.todo("Engine", () => {
       const engine = new Engine();
       const onUnloaded = vi.fn();
 
-      engine.onUnload(onUnloaded);
+      engine.onReadyChange((isReady) => {
+        if (!isReady) {
+          onUnloaded();
+        }
+      });
       engine.unload();
 
       expect(onUnloaded).not.toHaveBeenCalled();
     });
 
-    it("is idempotent - unloading twice only fires onUnloaded once", () => {
+    it("is idempotent - unloading twice only fires onReadyChange(false) once", () => {
       const engine = new Engine();
       const onUnloaded = vi.fn();
 
-      engine.onUnload(onUnloaded);
+      engine.onReadyChange((isReady) => {
+        if (!isReady) {
+          onUnloaded();
+        }
+      });
       engine.load(simpleSong);
       engine.unload();
       engine.unload();
