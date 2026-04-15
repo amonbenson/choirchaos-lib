@@ -10,8 +10,8 @@ export default class MidiChannelSource extends ChannelSource {
   setup(_context: AudioContext): void {
   }
 
-  destroy(): void {
-    super.destroy();
+  dispose(): void {
+    super.dispose();
   }
 
   protected handlePlayingChange(_playing: boolean): void {

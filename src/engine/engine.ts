@@ -2,6 +2,7 @@ import { type Song } from "@/model/song";
 import { type Numbering, type Tempo, type TimeSignature } from "@/music";
 import { type Event, Property } from "@/utils/events";
 
+import { AudioEngine } from "./audio";
 import { type Clock, SetIntervalClock } from "./clock";
 import type CompiledSong from "./compiler/compiledSong";
 import Compiler from "./compiler/compiler";
@@ -15,6 +16,7 @@ export default class Engine {
   private readonly compiler = new Compiler();
   private readonly transport = new Transport();
   private readonly clock: Clock;
+  private readonly audioEngine?: AudioEngine;
 
   private song: Song | undefined;
   private compiledSong: CompiledSong | undefined;
@@ -27,9 +29,11 @@ export default class Engine {
   readonly onSongDurationChange: Event<number> = this.transport.onSongDurationChange;
   readonly onFrameChange: Event<Frame | undefined> = this.transport.onFrameChange;
 
-  constructor(clock?: Clock) {
-    this.clock = clock ?? new SetIntervalClock();
+  constructor(options: { clock?: Clock; audio?: boolean } = {}) {
+    this.clock = options.clock ?? new SetIntervalClock();
     this.clock.setup(this.transport);
+
+    this.audioEngine = options.audio !== false ? new AudioEngine(this.transport) : undefined;
   }
 
   isReady(): boolean {
@@ -126,6 +130,7 @@ export default class Engine {
   }
 
   dispose(): void {
+    this.audioEngine?.dispose();
     this.clock.dispose();
   }
 }

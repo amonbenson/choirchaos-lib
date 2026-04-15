@@ -46,11 +46,11 @@ export default class ChannelStrip {
     }
   }
 
-  destroy(): void {
+  dispose(): void {
     // Disconnect and destroy the channel source
     if (this.channelSource) {
       this.channelSource.getOutputNode().disconnect();
-      this.channelSource.destroy();
+      this.channelSource.dispose();
     }
   }
 };

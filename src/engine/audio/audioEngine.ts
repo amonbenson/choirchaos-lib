@@ -27,7 +27,7 @@ export default class AudioEngine {
     if (loaded) {
       this.mixer.setup(this.audioContext);
     } else {
-      this.mixer.destroy();
+      this.mixer.dispose();
     }
   }
 
@@ -44,13 +44,13 @@ export default class AudioEngine {
     }
   }
 
-  destroy(): void {
+  dispose(): void {
     // Dispose all listeners
     for (const listener of Object.values(this.listeners)) {
       listener.dispose();
     }
 
     // Destroy the audio mixer
-    this.mixer.destroy();
+    this.mixer.dispose();
   }
 }

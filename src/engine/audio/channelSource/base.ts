@@ -37,7 +37,7 @@ export default abstract class ChannelSource {
   abstract getOutputNode(): AudioNode;
 
   abstract setup(context: AudioContext): void;
-  destroy(): void {
+  dispose(): void {
     // Dispose all listeners
     for (const listener of Object.values(this.listeners)) {
       listener.dispose();

@@ -20,7 +20,7 @@ export default class Mixer {
 
   setup(context: AudioContext): void {
     if (this.channelStrips.length > 0) {
-      throw new EngineAudioStateError("Cannot setup Mixer: Already contains channel strips. Run destroy() first.");
+      throw new EngineAudioStateError("Cannot setup Mixer: Already contains channel strips. Run dispose() first.");
     }
 
     // Lookup the song from the transport object
@@ -40,11 +40,11 @@ export default class Mixer {
     }
   }
 
-  destroy(): void {
+  dispose(): void {
     // Disconnect and destroy each channel strip
     for (const channelStrip of this.channelStrips) {
       channelStrip.getOutputNode().disconnect();
-      channelStrip.destroy();
+      channelStrip.dispose();
     }
 
     // Reset the channel strips array
