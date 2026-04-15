@@ -1,30 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { type Beat } from "@/model/beat";
-import { type BeatDirection, type CutDirection, type MarkerDirection, type MeasureDirection, type RepeatDirection, type TempoChangeDirection, type TimeSignatureChangeDirection } from "@/model/direction";
-import { type Measure } from "@/model/measure";
-import { createSong, type Song } from "@/model/song";
-import { type SongId } from "@/model/song";
+import { type CutDirection, type MarkerDirection, type RepeatDirection, type TempoChangeDirection, type TimeSignatureChangeDirection } from "@/model/direction";
 import { asNumbering, DefaultTempo, DefaultTimeSignature, QuarterNote } from "@/music";
+import { beat, beats, measure, song } from "@/test/utils";
 
 import { compile } from "./compiler";
 import { SongStructureError } from "./errors";
-
-function beat(...directions: BeatDirection[]): Beat {
-  return { directions };
-}
-
-function measure(beats: Beat[], ...directions: MeasureDirection[]): Measure {
-  return { beats, directions };
-}
-
-function song(...measures: Measure[]): Song {
-  return { ...createSong("test" as SongId), measures };
-}
-
-function beats(n: number): Beat[] {
-  return Array.from({ length: n }, () => beat());
-}
 
 describe("compile", () => {
   it("compiles an empty song into a single stop frame with default settings", () => {
@@ -241,9 +222,9 @@ describe("compile", () => {
   });
 
   describe("cuts", () => {
-    const cut3: CutDirection = { type: "cut", length: 3 };
     const cut1: CutDirection = { type: "cut", length: 1 };
     const cut2: CutDirection = { type: "cut", length: 2 };
+    const cut3: CutDirection = { type: "cut", length: 3 };
 
     it("places a cut on the center 3 measures of a 5-measure song", () => {
       const result = compile(song(

@@ -1,24 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { type Beat } from "@/model/beat";
-import { type BeatDirection, type MeasureDirection } from "@/model/direction";
-import { type Measure } from "@/model/measure";
-import { createSong, type Song } from "@/model/song";
-import { type SongId } from "@/model/song";
+import { beat, beats, measure, song } from "@/test/utils.js";
 
 import Engine from "./engine.js";
-
-function beat(...directions: BeatDirection[]): Beat {
-  return { directions };
-}
-
-function measure(beats: Beat[], ...directions: MeasureDirection[]): Measure {
-  return { beats, directions };
-}
-
-function song(...measures: Measure[]): Song {
-  return { ...createSong("test" as SongId), measures };
-}
 
 // A repeat (count-based) that extends past the end of a 1-measure song - useful as a generic invalid song
 const invalidSong = song(
@@ -26,8 +10,8 @@ const invalidSong = song(
 );
 
 const simpleSong = song(
-  measure([beat(), beat(), beat(), beat()]),
-  measure([beat(), beat(), beat(), beat()]),
+  measure(beats(4)),
+  measure(beats(4)),
 );
 
 describe("Engine", () => {

@@ -1,34 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { type Beat } from "@/model/beat";
-import { type BeatDirection, type MeasureDirection } from "@/model/direction";
-import { type Measure } from "@/model/measure";
-import { createSong, type Song } from "@/model/song";
-import { type SongId } from "@/model/song";
+import { type CutDirection } from "@/model/direction";
+import { beats, measure, song } from "@/test/utils";
 
-import Compiler from "./compiler/compiler";
+import { compile } from "./compiler";
 import Transport from "./transport";
 
-function beat(...directions: BeatDirection[]): Beat {
-  return { directions };
-}
-
-function measure(beats: Beat[], ...directions: MeasureDirection[]): Measure {
-  return { beats, directions };
-}
-
-function song(...measures: Measure[]): Song {
-  return { ...createSong("test" as SongId), measures };
-}
-
-const compiler = new Compiler();
-
 const simpleSong = song(
-  measure([beat(), beat(), beat(), beat()]),
-  measure([beat(), beat(), beat(), beat()]),
+  measure(beats(4)),
+  measure(beats(4)),
 );
 
-const compiledSimpleSong = compiler.compile(simpleSong);
+const compiledSimpleSong = compile(simpleSong);
 
 describe("Transport", () => {
   describe("load", () => {
@@ -181,11 +164,12 @@ describe("Transport", () => {
     it("updates the current time correctly", () => {
       const transport = new Transport();
       transport.load(compiledSimpleSong);
+      transport.play();
 
       transport.step(0.1);
 
-      expect(transport.getSongTime()).toBeCloseTo(0.1);
       expect(transport.getCurrentFrame()?.index).toBe(0);
+      expect(transport.getSongTime()).toBeCloseTo(0.1);
     });
 
     it("updates the next frame correctly", () => {
@@ -210,14 +194,84 @@ describe("Transport", () => {
         transport.step(0.1);
       }
 
-      expect(transport.getSongTime()).toBeCloseTo(3.9);
       expect(transport.getCurrentFrame()?.index).toBe(7);
+      expect(transport.getSongTime()).toBeCloseTo(3.9);
 
       // Step over the end of the song
       transport.step(0.2);
 
-      expect(transport.getSongTime()).toBeCloseTo(4.0);
       expect(transport.getCurrentFrame()?.index).toBe(8);
+      expect(transport.getSongTime()).toBeCloseTo(4.0);
+      expect(transport.isPlaying()).toBe(false);
+    });
+
+    describe("applies cut jumps correctly", () => {
+      const cut1: CutDirection = { type: "cut", length: 1 };
+
+      it("jumps a single cut section in the middle of a song", () => {
+        const transport = new Transport();
+        transport.load(compile(song(
+          measure(beats(4)),
+          measure(beats(4), cut1),
+          measure(beats(4)),
+        )));
+        transport.play();
+
+        transport.step(0.1);
+        transport.step(0.5);
+        transport.step(0.5);
+        transport.step(0.5);
+
+        expect(transport.getCurrentFrame()?.index).toBe(3);
+        expect(transport.getSongTime()).toBeCloseTo(1.6);
+
+        // Stepping one more beat should move is right into frame no. 8
+        transport.step(0.5);
+
+        expect(transport.getCurrentFrame()?.index).toBe(8);
+        expect(transport.getSongTime()).toBeCloseTo(4.1);
+
+        transport.step(0.1);
+        expect(transport.getCurrentFrame()?.index).toBe(8);
+        expect(transport.getSongTime()).toBeCloseTo(4.2);
+      });
+
+      it("jumps a single cut section at the end of a song", () => {
+        const transport = new Transport();
+        transport.load(compile(song(
+          measure(beats(4)),
+          measure(beats(4)),
+          measure(beats(4), cut1),
+        )));
+        transport.play();
+
+        while (transport.getSongTime() < 3.85) {
+          transport.step(0.1);
+        }
+
+        expect(transport.getCurrentFrame()?.index).toBe(7);
+        expect(transport.getSongTime()).toBeCloseTo(3.9);
+
+        transport.step(0.2);
+
+        expect(transport.getCurrentFrame()?.index).toBe(12);
+        expect(transport.getSongTime()).toBeCloseTo(6.0);
+      });
+
+      it("jumps a single cut section at the start of a song", () => {
+        const transport = new Transport();
+        transport.load(compile(song(
+          measure(beats(4), cut1),
+          measure(beats(4)),
+          measure(beats(4)),
+        )));
+        transport.play();
+
+        transport.step(0.1);
+
+        expect(transport.getCurrentFrame()?.index).toBe(4);
+        expect(transport.getSongTime()).toBeCloseTo(2.1);
+      });
     });
   });
 });

@@ -154,7 +154,7 @@ export default class Transport {
   }
 
   private calculateTargetTime(frame: Frame, time: number, targetFrame: Frame): number {
-    let timeIntoTargetFrame = time - frame.time - frame.duration;
+    let timeIntoTargetFrame = time - frame.time;
 
     if (timeIntoTargetFrame >= targetFrame.duration) {
       console.warn("Step size too large! Time stretching will occur.");
