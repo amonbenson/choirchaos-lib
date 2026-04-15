@@ -8,7 +8,7 @@ import { type Disposable } from "@/utils/events";
 export default abstract class ChannelSource {
   listeners: {
     playingChange: Disposable;
-    songTimeChange: Disposable;
+    currentTimeChange: Disposable;
     frameChange: Disposable;
   };
 
@@ -29,7 +29,7 @@ export default abstract class ChannelSource {
 
     this.listeners = {
       playingChange: transport.onPlayingChange((value: boolean) => this.handlePlayingChange(value)),
-      songTimeChange: transport.onSongTimeChange((value: number) => this.handleSongTimeChange(value)),
+      currentTimeChange: transport.onCurrentTimeChange((value: number) => this.handleCurrentTimeChange(value)),
       frameChange: transport.onFrameChange((value: Frame | undefined) => this.handleFrameChange(value)),
     };
   }
@@ -45,6 +45,6 @@ export default abstract class ChannelSource {
   }
 
   protected abstract handlePlayingChange(playing: boolean): void;
-  protected abstract handleSongTimeChange(time: number): void;
+  protected abstract handleCurrentTimeChange(time: number): void;
   protected abstract handleFrameChange(frame: Frame | undefined): void;
 };

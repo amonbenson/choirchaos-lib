@@ -17,7 +17,7 @@ export default class MidiChannelSource extends ChannelSource {
   protected handlePlayingChange(_playing: boolean): void {
   }
 
-  protected handleSongTimeChange(_time: number): void {
+  protected handleCurrentTimeChange(_time: number): void {
   }
 
   protected handleFrameChange(_frame: Frame | undefined): void {

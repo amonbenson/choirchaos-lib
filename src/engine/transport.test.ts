@@ -100,10 +100,10 @@ describe("Transport", () => {
       transport.load(compiledSimpleSong);
 
       transport.seek(0.5);
-      expect(transport.getSongTime()).toBeCloseTo(0.5);
+      expect(transport.getCurrentTime()).toBeCloseTo(0.5);
 
       transport.seek(3.5);
-      expect(transport.getSongTime()).toBeCloseTo(3.5);
+      expect(transport.getCurrentTime()).toBeCloseTo(3.5);
     });
 
     it("clamps the time to the song length", () => {
@@ -111,10 +111,10 @@ describe("Transport", () => {
       transport.load(compiledSimpleSong);
 
       transport.seek(4.5);
-      expect(transport.getSongTime()).toBeCloseTo(4.0);
+      expect(transport.getCurrentTime()).toBeCloseTo(4.0);
 
       transport.seek(-0.5);
-      expect(transport.getSongTime()).toBeCloseTo(0.0);
+      expect(transport.getCurrentTime()).toBeCloseTo(0.0);
     });
 
     it("updates the current frame correctly", () => {
@@ -169,7 +169,7 @@ describe("Transport", () => {
       transport.step(0.1);
 
       expect(transport.getCurrentFrame()?.index).toBe(0);
-      expect(transport.getSongTime()).toBeCloseTo(0.1);
+      expect(transport.getCurrentTime()).toBeCloseTo(0.1);
     });
 
     it("updates the next frame correctly", () => {
@@ -190,18 +190,18 @@ describe("Transport", () => {
       transport.play();
 
       // Step to the end of the last frame
-      while (transport.getSongTime() < 3.85) {
+      while (transport.getCurrentTime() < 3.85) {
         transport.step(0.1);
       }
 
       expect(transport.getCurrentFrame()?.index).toBe(7);
-      expect(transport.getSongTime()).toBeCloseTo(3.9);
+      expect(transport.getCurrentTime()).toBeCloseTo(3.9);
 
       // Step over the end of the song
       transport.step(0.2);
 
       expect(transport.getCurrentFrame()?.index).toBe(8);
-      expect(transport.getSongTime()).toBeCloseTo(4.0);
+      expect(transport.getCurrentTime()).toBeCloseTo(4.0);
       expect(transport.isPlaying()).toBe(false);
     });
 
@@ -223,17 +223,17 @@ describe("Transport", () => {
         transport.step(0.5);
 
         expect(transport.getCurrentFrame()?.index).toBe(3);
-        expect(transport.getSongTime()).toBeCloseTo(1.6);
+        expect(transport.getCurrentTime()).toBeCloseTo(1.6);
 
         // Stepping one more beat should move is right into frame no. 8
         transport.step(0.5);
 
         expect(transport.getCurrentFrame()?.index).toBe(8);
-        expect(transport.getSongTime()).toBeCloseTo(4.1);
+        expect(transport.getCurrentTime()).toBeCloseTo(4.1);
 
         transport.step(0.1);
         expect(transport.getCurrentFrame()?.index).toBe(8);
-        expect(transport.getSongTime()).toBeCloseTo(4.2);
+        expect(transport.getCurrentTime()).toBeCloseTo(4.2);
       });
 
       it("jumps a single cut section at the end of a song", () => {
@@ -245,17 +245,17 @@ describe("Transport", () => {
         )));
         transport.play();
 
-        while (transport.getSongTime() < 3.85) {
+        while (transport.getCurrentTime() < 3.85) {
           transport.step(0.1);
         }
 
         expect(transport.getCurrentFrame()?.index).toBe(7);
-        expect(transport.getSongTime()).toBeCloseTo(3.9);
+        expect(transport.getCurrentTime()).toBeCloseTo(3.9);
 
         transport.step(0.2);
 
         expect(transport.getCurrentFrame()?.index).toBe(12);
-        expect(transport.getSongTime()).toBeCloseTo(6.0);
+        expect(transport.getCurrentTime()).toBeCloseTo(6.0);
       });
 
       it("jumps a single cut section at the start of a song", () => {
@@ -270,7 +270,7 @@ describe("Transport", () => {
         transport.step(0.1);
 
         expect(transport.getCurrentFrame()?.index).toBe(4);
-        expect(transport.getSongTime()).toBeCloseTo(2.1);
+        expect(transport.getCurrentTime()).toBeCloseTo(2.1);
       });
     });
   });

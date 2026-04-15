@@ -22,13 +22,13 @@ export default class Transport {
 
   private readonly loaded = new Property(false);
   private readonly playing = new Property(false);
-  private readonly songTime = new Property(0);
+  private readonly currentTime = new Property(0);
   private readonly songDuration = new Property(0);
   private readonly frame = new Property<Frame | undefined>(undefined);
 
   readonly onLoadedChange: Event<boolean> = this.loaded.onChange;
   readonly onPlayingChange: Event<boolean> = this.playing.onChange;
-  readonly onSongTimeChange: Event<number> = this.songTime.onChange;
+  readonly onCurrentTimeChange: Event<number> = this.currentTime.onChange;
   readonly onSongDurationChange: Event<number> = this.songDuration.onChange;
   readonly onFrameChange: Event<Frame | undefined> = this.frame.onChange;
 
@@ -48,8 +48,8 @@ export default class Transport {
     return this.playing.get();
   }
 
-  getSongTime(): number {
-    return this.songTime.get();
+  getCurrentTime(): number {
+    return this.currentTime.get();
   }
 
   getSongDuration(): number {
@@ -88,7 +88,7 @@ export default class Transport {
     this.compiledSong = compiledSong;
     this.playing.set(false);
     this.songDuration.set(compiledSong.duration);
-    this.songTime.set(0);
+    this.currentTime.set(0);
     this.frame.set(compiledSong.frames[0]);
     this.loaded.set(true);
   }
@@ -98,7 +98,7 @@ export default class Transport {
     this.compiledSong = undefined;
     this.playing.set(false);
     this.songDuration.set(0);
-    this.songTime.set(0);
+    this.currentTime.set(0);
     this.frame.set(undefined);
   }
 
@@ -124,7 +124,7 @@ export default class Transport {
     }
 
     // Skip if the time is already set
-    if (this.songTime.get() === time) {
+    if (this.currentTime.get() === time) {
       return;
     }
 
@@ -143,9 +143,9 @@ export default class Transport {
       extend: true,
     });
 
-    // Update the current frame and song time
+    // Update the current frame and time
     this.frame.set(this.compiledSong.frames[Math.max(0, index)]);
-    this.songTime.set(clampedTime);
+    this.currentTime.set(clampedTime);
 
     // Restore playback
     if (wasPlaying) {
@@ -220,7 +220,7 @@ export default class Transport {
       return;
     }
 
-    const currentTime = this.songTime.get();
+    const currentTime = this.currentTime.get();
     let nextTime = currentTime + delta;
 
     // Check if we need to move on to the next frame
@@ -242,6 +242,6 @@ export default class Transport {
     }
 
     // Update the current time
-    this.songTime.set(nextTime);
+    this.currentTime.set(nextTime);
   }
 }

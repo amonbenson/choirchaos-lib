@@ -25,7 +25,7 @@ export default class Engine {
 
   readonly onReadyChange: Event<boolean> = this.ready.onChange;
   readonly onPlayingChange: Event<boolean> = this.transport.onPlayingChange;
-  readonly onSongTimeChange: Event<number> = this.transport.onSongTimeChange;
+  readonly onCurrentTimeChange: Event<number> = this.transport.onCurrentTimeChange;
   readonly onSongDurationChange: Event<number> = this.transport.onSongDurationChange;
   readonly onFrameChange: Event<Frame | undefined> = this.transport.onFrameChange;
 
@@ -52,8 +52,8 @@ export default class Engine {
     return this.transport.isPlaying();
   }
 
-  getSongTime(): number {
-    return this.transport.getSongTime();
+  getCurrentTime(): number {
+    return this.transport.getCurrentTime();
   }
 
   getSongDuration(): number {
