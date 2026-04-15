@@ -3,19 +3,20 @@ import { asNumbering, DefaultTempo, DefaultTimeSignature, type Numbering, type T
 import { binarySearch } from "@/utils/binarySearch";
 import { type Event, Property } from "@/utils/events";
 
+import { type Jump } from "./compiler";
 import type CompiledSong from "./compiler/compiledSong";
 import type Cut from "./compiler/cut";
 import type Frame from "./compiler/frame";
 import type Marker from "./compiler/marker";
 import type Repeat from "./compiler/repeat";
+import { EngineStateError } from "./errors";
 
-/**
- * Manages playback position and state for a compiled song.
- *
- * The transport tracks the current frame, song time, and play/pause state.
- * It does not run any timers — call step() externally (e.g. from a Clock)
- * to advance playback.
- */
+export type RepeatState = {
+  currentIteration: number;
+  iterations: number;
+  exitRequested: boolean;
+};
+
 export default class Transport {
   private compiledSong: CompiledSong | undefined;
 
@@ -152,36 +153,95 @@ export default class Transport {
     }
   }
 
-  step(delta: number): void {
-    const { compiledSong } = this;
+  private calculateTargetTime(frame: Frame, time: number, targetFrame: Frame): number {
+    let timeIntoTargetFrame = time - frame.time - frame.duration;
 
-    if (!compiledSong) {
-      return;
+    if (timeIntoTargetFrame >= targetFrame.duration) {
+      console.warn("Step size too large! Time stretching will occur.");
+      timeIntoTargetFrame = targetFrame.duration - 0.0001;
     }
 
-    const initial = this.frame.get();
+    return targetFrame.time + timeIntoTargetFrame;
+  }
 
-    if (!initial) {
-      return;
+  private selectNextJump(frame: Frame): Jump | undefined {
+    for (const jump of frame.jumps) {
+      switch (jump.type) {
+        case "cut":
+          return jump;
+        case "repeat":
+          // TODO: conditional
+          return jump;
+        case "vampExit":
+          // TODO: conditional
+          return jump;
+        default:
+          throw new EngineStateError(`Invalid jump type: ${(jump as Jump).type}`);
+      }
     }
 
-    let frame: Frame = initial;
-    let time = this.songTime.get() + delta;
+    return undefined;
+  }
 
-    while (time >= frame.time + frame.duration) {
-      // TODO: Check frame.jumps and execute applicable ones (cuts, repeats, vamps).
-      const next = compiledSong.frames[frame.index + 1];
+  private applySpecificJump(frame: Frame, time: number, jump: Jump): [Frame, number] {
+    const targetFrame = this.compiledSong!.frames[jump.targetFrameIndex] ?? this.compiledSong!.stopFrame;
+    const targetTime = this.calculateTargetTime(frame, time, targetFrame);
+    return [targetFrame, targetTime];
+  }
 
-      if (!next) {
-        time = compiledSong.duration;
-        this.playing.set(false);
-        break;
+  private applyJumps(frame: Frame, time: number): [Frame, number] {
+    for (let i = 0; i < 100; i++) {
+      // Check if there is a jump we need to follow
+      const jump = this.selectNextJump(frame);
+
+      // If not, return the current frame and time
+      if (!jump) {
+        return [frame, time];
       }
 
-      frame = next;
+      // If yes, apply that jump and continue following jumps from here
+      [frame, time] = this.applySpecificJump(frame, time, jump);
     }
 
-    this.frame.set(frame);
-    this.songTime.set(time);
+    throw new EngineStateError("Jump cycle detected (maximum number of jumps reached)!");
+  }
+
+  step(delta: number): void {
+    if (!this.compiledSong) {
+      return;
+    }
+
+    if (!this.playing.get()) {
+      throw new EngineStateError("Cannot call step() while paused.");
+    }
+
+    const currentFrame = this.frame.get();
+    if (!currentFrame) {
+      return;
+    }
+
+    const currentTime = this.songTime.get();
+    let nextTime = currentTime + delta;
+
+    // Check if we need to move on to the next frame
+    if (nextTime >= currentFrame.time + currentFrame.duration) {
+      // Get the next frame in order. Use stopFrame as a fallback if we've moved past the end of the song.
+      let nextFrame = this.compiledSong.frames[currentFrame.index + 1] ?? this.compiledSong.stopFrame;
+
+      // Apply jumps for his frame
+      [nextFrame, nextTime] = this.applyJumps(nextFrame, nextTime);
+
+      // Stop playback if we've reached the end
+      if (nextTime >= this.songDuration.get()) {
+        nextTime = this.songDuration.get();
+        this.playing.set(false);
+      }
+
+      // Update the current frame
+      this.frame.set(nextFrame);
+    }
+
+    // Update the current time
+    this.songTime.set(nextTime);
   }
 }
