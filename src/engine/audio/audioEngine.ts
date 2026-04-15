@@ -17,8 +17,8 @@ export default class AudioEngine {
 
     // Register transport listeners
     this.listeners = {
-      loadedChange: transport.onLoadedChange(this.handleLoadedChange),
-      playingChange: transport.onPlayingChange(this.handlePlayingChange),
+      loadedChange: transport.onLoadedChange((value: boolean) => this.handleLoadedChange(value)),
+      playingChange: transport.onPlayingChange((value: boolean) => this.handlePlayingChange(value)),
     };
   }
 

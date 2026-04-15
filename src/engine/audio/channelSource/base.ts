@@ -28,9 +28,9 @@ export default abstract class ChannelSource {
     this.song = compiledSong.source;
 
     this.listeners = {
-      playingChange: transport.onPlayingChange(this.handlePlayingChange),
-      songTimeChange: transport.onSongTimeChange(this.handleSongTimeChange),
-      frameChange: transport.onFrameChange(this.handleFrameChange),
+      playingChange: transport.onPlayingChange((value: boolean) => this.handlePlayingChange(value)),
+      songTimeChange: transport.onSongTimeChange((value: number) => this.handleSongTimeChange(value)),
+      frameChange: transport.onFrameChange((value: Frame | undefined) => this.handleFrameChange(value)),
     };
   }
 
