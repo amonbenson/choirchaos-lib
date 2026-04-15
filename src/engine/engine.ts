@@ -1,399 +1,131 @@
-import { type Cut, type Marker, type MeasureDirection, type Repeat } from "@/model/direction";
-import { type MeasureNumber } from "@/model/measure";
-import { compareMeasureReferences, type MeasureReference } from "@/model/measureReference";
 import { type Song } from "@/model/song";
-import { DefaultTempo, DefaultTimeSignature, nextSequentialNumbering } from "@/music";
-import { Emitter, type Emitters, Property } from "@/utils/events";
-import { SetIntervalUpdater, type Updater } from "@/utils/updater";
+import { type Numbering, type Tempo, type TimeSignature } from "@/music";
+import { type Event, Property } from "@/utils/events";
 
-import { type BeatFrame, BeatTimeline } from "./beatFrame";
-import { EngineStateError, SongStructureError } from "./errors";
-import { type ResolvedDirection } from "./resolvedDirection";
-
-export type RepeatState = {
-  iteration: number;
-  exiting: boolean;
-};
+import { type Clock, SetIntervalClock } from "./clock";
+import type CompiledSong from "./compiler/compiledSong";
+import Compiler from "./compiler/compiler";
+import type Cut from "./compiler/cut";
+import type Frame from "./compiler/frame";
+import type Marker from "./compiler/marker";
+import type Repeat from "./compiler/repeat";
+import Transport from "./transport";
 
 export default class Engine {
-  private readonly emitters = {
-    unloaded: new Emitter<void>(),
-    ready: new Emitter<void>(),
-    error: new Emitter<Error>(),
-  } satisfies Emitters;
+  private readonly compiler = new Compiler();
+  private readonly transport = new Transport();
+  private readonly clock: Clock;
 
-  private updater: Updater;
+  private song: Song | undefined;
+  private compiledSong: CompiledSong | undefined;
 
-  private song?: Song;
-  private beats = new BeatTimeline();
+  private readonly ready = new Property(false);
 
-  private playing = new Property(false);
-  private songTime = new Property(0);
-  private songDuration = new Property(0);
+  readonly onReadyChange: Event<boolean> = this.ready.onChange;
+  readonly onPlayingChange: Event<boolean> = this.transport.onPlayingChange;
+  readonly onSongTimeChange: Event<number> = this.transport.onSongTimeChange;
+  readonly onSongDurationChange: Event<number> = this.transport.onSongDurationChange;
+  readonly onFrameChange: Event<Frame | undefined> = this.transport.onFrameChange;
 
-  private currentBeatIndex = new Property(0);
-  private currentBeat = new Property<BeatFrame | undefined>(undefined);
-  private repeatState = new Property({
-    iteration: 0,
-    exiting: false,
-  } as RepeatState);
-
-  readonly onUnload = this.emitters.unloaded.event;
-  readonly onReady = this.emitters.ready.event;
-  readonly onError = this.emitters.error.event;
-
-  readonly onPlayingChange = this.playing.onChange;
-  readonly onSongTimeChange = this.songTime.onChange;
-  readonly onSongDurationChange = this.songDuration.onChange;
-
-  readonly onBeatChange = this.currentBeat.onChange;
-  readonly onRepeatStateChange = this.repeatState.onChange;
-
-  constructor(updater?: Updater) {
-    // Set the updater or use the default internal one at 50 updates per second
-    this.updater = updater ?? new SetIntervalUpdater({
-      interval: 1 / 50,
-      maximumLag: 5.0,
-    });
-
-    // Register updater callback
-    this.updater.onTick((delta) => {
-      if (this.isReady() && this.isPlaying()) {
-        this.update(delta);
-      }
-    });
-
-    // Link the current beat to the beat index
-    this.currentBeatIndex.onChange((index) => {
-      this.currentBeat.set(this.beats.items()[index]);
-    });
+  constructor(clock?: Clock) {
+    this.clock = clock ?? new SetIntervalClock();
+    this.clock.setup(this.transport);
   }
 
-  public isReady(): boolean {
-    return Boolean(this.song);
+  isReady(): boolean {
+    return this.ready.get();
   }
 
-  public getSong(): Song | undefined {
+  getSong(): Song | undefined {
     return this.song;
   }
 
-  public getBeatFrames(): BeatFrame[] {
-    return this.beats.items();
+  getCompiledSong(): CompiledSong | undefined {
+    return this.compiledSong;
   }
 
-  public isPlaying(): boolean {
-    return this.playing.get();
+  isPlaying(): boolean {
+    return this.transport.isPlaying();
   }
 
-  public getSongTime(): number {
-    return this.songTime.get();
+  getSongTime(): number {
+    return this.transport.getSongTime();
   }
 
-  public getSongDuration(): number {
-    return this.songDuration.get();
+  getSongDuration(): number {
+    return this.transport.getSongDuration();
   }
 
-  public getCurrentBeat(): BeatFrame | undefined {
-    return this.currentBeat.get();
+  getCurrentFrame(): Frame | undefined {
+    return this.transport.getCurrentFrame();
   }
 
-  public getRepeatState(): RepeatState {
-    return this.repeatState.get();
+  getCurrentTempo(): Tempo {
+    return this.transport.getCurrentTempo();
   }
 
-  public setVampExiting(value: boolean): void {
-    const beat = this.currentBeat.get();
-    if (!beat) {
-      throw new EngineStateError("No current beat.");
-    }
-
-    if (!beat.repeat) {
-      throw new EngineStateError("Currently not repeating.");
-    }
-
-    if (beat.repeat.exit.type === "count") {
-      throw new EngineStateError("Cannot exit counted repeat.");
-    }
-
-    this.repeatState.set({
-      ...this.repeatState.get(),
-      exiting: value,
-    });
+  getCurrentTimeSignature(): TimeSignature {
+    return this.transport.getCurrentTimeSignature();
   }
 
-  public getBeatByTime(time: number): BeatFrame | undefined {
-    return this.beats.search({ time } as BeatFrame);
+  getCurrentMeasureNumber(): Numbering {
+    return this.transport.getCurrentMeasureNumber();
   }
 
-  public getBeatByMeasureReference(reference: MeasureReference): BeatFrame | undefined {
-    return this.beats.search({ reference } as BeatFrame, {
-      comparator: (a, b) => compareMeasureReferences(a.reference, b.reference),
-    });
+  getCurrentMarker(): Marker | undefined {
+    return this.transport.getCurrentMarker();
   }
 
-  private generateBeatFrames(): void {
-    if (!this.song) {
-      throw new EngineStateError("Engine has no song stored.");
-    }
-
-    // Generate all annotated beats
-    const beatFrames: BeatFrame[] = [];
-
-    let time = 0;
-    let measureNumber = "1" as MeasureNumber;
-
-    let tempo = DefaultTempo;
-    let timeSignature = DefaultTimeSignature;
-
-    let marker: ResolvedDirection<Marker> | undefined = undefined;
-    let repeat: ResolvedDirection<Repeat> | undefined = undefined;
-    let cut: ResolvedDirection<Cut> | undefined = undefined;
-
-    let isRepeatEnd = false;
-
-    for (let m = 0; m < this.song.measures.length; m++) {
-      const measure = this.song.measures[m];
-
-      // Clear directions
-      if (marker) {
-        marker = undefined;
-      }
-
-      if (repeat && m - repeat.measureIndex >= repeat.length) {
-        repeat = undefined;
-        isRepeatEnd = true; // Mark end of repeat. Will be reset after the next beat
-      }
-
-      if (cut && m - cut.measureIndex >= cut.length) {
-        cut = undefined;
-      }
-
-      if (measure.beats.length < 1) {
-        throw new SongStructureError("Measure must contain at least one beat.", m);
-      }
-
-      // Handle measure directions
-      for (const direction of measure.directions) {
-        // Catch overlapping repeats
-        if (repeat && (direction.type === "repeat")) {
-          throw new SongStructureError(`Overlapping repeat at measure ${measureNumber}`, m);
-        }
-
-        const resolvedDirection = {
-          ...direction,
-          measureIndex: m,
-        } satisfies ResolvedDirection<MeasureDirection>;
-
-        switch (resolvedDirection.type) {
-          case "measureNumberChange":
-            measureNumber = resolvedDirection.value;
-            break;
-          case "marker":
-            marker = resolvedDirection;
-            break;
-          case "repeat":
-            if (resolvedDirection.length < 1) {
-              throw new SongStructureError("Repeat length must be at least 1.", m);
-            }
-
-            // Validate exit conditions for each type
-            switch (resolvedDirection.exit.type) {
-              case "count":
-                if (resolvedDirection.exit.iterations < 1) {
-                  throw new SongStructureError("Repeat must have at least 1 iterations.", m);
-                }
-
-                break;
-              case "vamp":
-                break;
-              case "vampOutAnyBar":
-              case "vampOutAnyBeat":
-                if (resolvedDirection.exit.every < 1) {
-                  throw new SongStructureError("Vamp exit interval must be at least 1.", m);
-                }
-
-                break;
-            }
-
-            repeat = resolvedDirection;
-            break;
-          case "cut":
-            if (resolvedDirection.length < 1) {
-              throw new SongStructureError("Cut length must be at least 1.", m);
-            }
-
-            cut = resolvedDirection;
-            break;
-        }
-      }
-
-      for (let b = 0; b < measure.beats.length; b++) {
-        const beat = measure.beats[b];
-
-        // Handle beat directions
-        for (const direction of beat.directions) {
-          switch (direction.type) {
-            case "tempoChange":
-              if (!isFinite(direction.value.bpm) || direction.value.bpm <= 0) {
-                throw new SongStructureError("Tempo BPM must be a positive finite number.", m);
-              }
-
-              tempo = direction.value;
-              break;
-            case "timeSignatureChange":
-              if (direction.value.beats < 1) {
-                throw new SongStructureError("Time signature beat count must be at least 1.", m);
-              }
-
-              timeSignature = direction.value;
-              break;
-          }
-        }
-
-        // Check for vamp exit locations
-        let isVampExit = false;
-        if (repeat && repeat.exit.type !== "count") {
-          switch (repeat.exit.type) {
-            case "vampOutAnyBar":
-              // Exit every nth bar on the first beat
-              isVampExit = ((m - repeat.measureIndex) % repeat.exit.every === 0) && b === 0;
-              break;
-            case "vampOutAnyBeat":
-              // Exit every nth beat
-              isVampExit = b % repeat.exit.every === 0;
-              break;
-            case "vamp":
-              // Exit only at the end. This is handled by the clear-directions-block above
-              break;
-          }
-        }
-
-        // Beat duration can be derived directly from the tempo in beats per second
-        const duration = 60 / tempo.bpm;
-
-        beatFrames.push({
-          time,
-          duration,
-          reference: [measureNumber, b],
-          tempo,
-          timeSignature,
-          marker,
-          repeat,
-          cut,
-          isRepeatEnd,
-          isVampExit,
-        });
-
-        // Clear repeat end flag
-        isRepeatEnd = false;
-
-        // Increment time
-        time += duration;
-      }
-
-      // Increment the measure number
-      measureNumber = nextSequentialNumbering(measureNumber);
-    }
-
-    // Make sure that all length-restricted directions persist past the end of the song
-    if (repeat) {
-      throw new SongStructureError("Repeat cannot persist past the end of the song.", repeat.measureIndex);
-    }
-
-    if (cut) {
-      throw new SongStructureError("Cut cannot persist past the end of the song.", cut.measureIndex);
-    }
-
-    // Store all data
-    this.beats = new BeatTimeline(beatFrames);
-
-    // Reset the playback state
-    this.playing.set(false);
-    this.songTime.set(0);
-    this.songDuration.set(time);
-
-    this.currentBeatIndex.set(0);
-    this.repeatState.set({
-      iteration: 0,
-      exiting: false,
-    });
-
-    // TODO: Set playing and seek to the previous location
+  getCurrentRepeat(): Repeat | undefined {
+    return this.transport.getCurrentRepeat();
   }
 
-  private reset(): void {
-    this.song = undefined;
-    this.beats.clear();
+  getCurrentCut(): Cut | undefined {
+    return this.transport.getCurrentCut();
+  }
 
-    this.playing.set(false);
-    this.songTime.set(0);
-    this.songDuration.set(0);
+  play(): void {
+    this.transport.play();
+  }
 
-    this.currentBeatIndex.set(0);
-    this.repeatState.set({
-      iteration: 0,
-      exiting: false,
-    });
+  pause(): void {
+    this.transport.pause();
+  }
+
+  seek(time: number): void {
+    this.transport.seek(time);
   }
 
   load(song: Song): void {
-    // Unload previous song
     if (this.isReady()) {
       this.unload();
     }
 
     try {
       this.song = song;
-
-      this.generateBeatFrames();
-
-      this.emitters.ready.fire();
+      this.compiledSong = this.compiler.compile(song);
+      this.transport.load(this.compiledSong);
+      this.ready.set(true);
     } catch (err) {
-      this.reset();
-      this.emitters.error.fire(err as Error);
+      this.song = undefined;
+      this.compiledSong = undefined;
+      this.ready.set(false);
+      throw err;
     }
   }
 
   unload(): void {
-    // Skip if song has already been unloaded
     if (!this.isReady()) {
       return;
     }
 
-    this.reset();
-    this.emitters.unloaded.fire();
+    this.transport.unload();
+    this.song = undefined;
+    this.compiledSong = undefined;
+    this.ready.set(false);
   }
 
-  private update(delta: number): void {
-    const time = this.songTime.get();
-    const nextTime = time + delta;
-
-    // TODO: Stop and skip update if there are no beats or we reached the end. Also implement segue later
-
-    const beat = this.currentBeat.get();
-    if (!beat) {
-      throw new Error("No current beat.");
-    }
-
-    // Move on to the next beat if we surpassed the current one
-    if (nextTime > beat.time + beat.duration) {
-      const nextBeatIndex = this.currentBeatIndex.get() + 1;
-      this.currentBeatIndex.set(nextBeatIndex);
-    }
-
-    // Update the current time
-    this.songTime.set(nextTime);
-  }
-
-  seek(): void {
-
-  }
-
-  play(): void {
-
-  }
-
-  pause(): void {
-
+  dispose(): void {
+    this.clock.dispose();
   }
 }

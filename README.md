@@ -1,10 +1,10 @@
-# scoresync
+# ChoirChaos Library
 
 ## Overview
 
 **ChoirChaos** is a web app for choir/musical theatre directors. It plays back synchronized MIDI audio for a show's sheet music, while scrolling a PDF score in sync. A **Show** contains **Songs**, each of which has a list of **Measures**, each containing **Beats** — and each Beat carries **Directions** (events that control playback navigation: repeats, cuts, vamps/holds, tempo changes, etc.).
 
-**scoresync** is the extracted core library. The architecture has five distinct concerns:
+**choirchaos** (previously **scoresync**) is the extracted core library. The architecture has five distinct concerns:
 
 1. **Data model** — the `Show → Song → Measure → Beat → Direction` hierarchy, the pure declarative "what is this show"
 2. **Playback engine** — tracks playback time and position, interprets direction events (jumps, loops, tempo), emits position updates; completely decoupled from any audio technology
