@@ -8,8 +8,6 @@ import { type SongId } from "@/model/song";
 
 import Engine from "./engine.js";
 
-// --- Fixtures ---
-
 function beat(...directions: BeatDirection[]): Beat {
   return { directions };
 }
@@ -31,8 +29,6 @@ const simpleSong = song(
   measure([beat(), beat(), beat(), beat()]),
   measure([beat(), beat(), beat(), beat()]),
 );
-
-// --- Tests ---
 
 describe("Engine", () => {
   describe("load", () => {
