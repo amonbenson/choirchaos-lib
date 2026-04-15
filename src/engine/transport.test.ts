@@ -207,8 +207,9 @@ describe("Transport", () => {
 
     describe("applies cut jumps correctly", () => {
       const cut1: CutDirection = { type: "cut", length: 1 };
+      const cut2: CutDirection = { type: "cut", length: 2 };
 
-      it("jumps a single cut section in the middle of a song", () => {
+      it("follows a single cut section in the middle of a song", () => {
         const transport = new Transport();
         transport.load(compile(song(
           measure(beats(4)),
@@ -236,7 +237,7 @@ describe("Transport", () => {
         expect(transport.getCurrentTime()).toBeCloseTo(4.2);
       });
 
-      it("jumps a single cut section at the end of a song", () => {
+      it("follows a single cut section at the end of a song", () => {
         const transport = new Transport();
         transport.load(compile(song(
           measure(beats(4)),
@@ -258,19 +259,66 @@ describe("Transport", () => {
         expect(transport.getCurrentTime()).toBeCloseTo(6.0);
       });
 
-      it("jumps a single cut section at the start of a song", () => {
+      it("follows a single cut section at the start of a song", () => {
         const transport = new Transport();
         transport.load(compile(song(
           measure(beats(4), cut1),
           measure(beats(4)),
           measure(beats(4)),
         )));
+
+        // Cut should apply immediately, even before playing
+        expect(transport.getCurrentFrame()?.index).toBe(4);
+        expect(transport.getCurrentTime()).toBeCloseTo(2.0);
+      });
+
+      it("follows two consecutive cuts", () => {
+        const transport = new Transport();
+        transport.load(compile(song(
+          measure(beats(4)),
+          measure(beats(4), cut2),
+          measure(beats(4)),
+          measure(beats(4), cut1),
+          measure(beats(4)),
+        )));
         transport.play();
 
         transport.step(0.1);
+        transport.step(0.5);
+        transport.step(0.5);
+        transport.step(0.5);
 
-        expect(transport.getCurrentFrame()?.index).toBe(4);
-        expect(transport.getCurrentTime()).toBeCloseTo(2.1);
+        expect(transport.getCurrentFrame()?.index).toBe(3);
+        expect(transport.getCurrentTime()).toBeCloseTo(1.6);
+
+        // Stepping one more beat should move is right into frame no. 16
+        transport.step(0.5);
+
+        expect(transport.getCurrentFrame()?.index).toBe(16);
+        expect(transport.getCurrentTime()).toBeCloseTo(8.1);
+
+        transport.step(0.1);
+        expect(transport.getCurrentFrame()?.index).toBe(16);
+        expect(transport.getCurrentTime()).toBeCloseTo(8.2);
+      });
+
+      it("follows two consecutive cuts at the start of a song", () => {
+        const transport = new Transport();
+        transport.load(compile(song(
+          measure(beats(4), cut2),
+          measure(beats(4)),
+          measure(beats(4), cut1),
+          measure(beats(4)),
+        )));
+
+        expect(transport.getCurrentFrame()?.index).toBe(12);
+        expect(transport.getCurrentTime()).toBeCloseTo(6.0);
+
+        transport.play();
+        transport.step(0.1);
+
+        expect(transport.getCurrentFrame()?.index).toBe(12);
+        expect(transport.getCurrentTime()).toBeCloseTo(6.1);
       });
     });
   });

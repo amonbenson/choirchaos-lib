@@ -88,8 +88,12 @@ export default class Transport {
     this.compiledSong = compiledSong;
     this.playing.set(false);
     this.songDuration.set(compiledSong.duration);
-    this.currentTime.set(0);
-    this.frame.set(compiledSong.frames[0]);
+
+    // Follow the jumps of the initial frame
+    const [initialFrame, initialTime] = this.followJumps(compiledSong.frames[0], 0);
+    this.frame.set(initialFrame);
+    this.currentTime.set(initialTime);
+
     this.loaded.set(true);
   }
 
@@ -134,18 +138,24 @@ export default class Transport {
       this.pause();
     }
 
-    // Use binary search to find the requested index
-    const clampedTime = Math.max(0, Math.min(time, this.compiledSong.duration));
-    const index = binarySearch(this.compiledSong.frames, clampedTime, {
+    // Use binary search to find the requested frame
+    time = Math.max(0, Math.min(time, this.compiledSong.duration));
+    const frameIndex = binarySearch(this.compiledSong.frames, time, {
       comparator: (t, frame) => t - frame.time,
       direction: "backward",
       inclusive: true,
       extend: true,
     });
+    let frame = this.compiledSong.frames[frameIndex] ?? this.compiledSong.stopFrame;
+
+    // Follow jumps in the target section
+    // TODO: End-of-repeats should not be followed here!
+    // TODO: The vamp/repeat state needs to be reset.
+    [frame, time] = this.followJumps(frame, time);
 
     // Update the current frame and time
-    this.frame.set(this.compiledSong.frames[Math.max(0, index)]);
-    this.currentTime.set(clampedTime);
+    this.frame.set(frame);
+    this.currentTime.set(time);
 
     // Restore playback
     if (wasPlaying) {
@@ -164,15 +174,31 @@ export default class Transport {
     return targetFrame.time + timeIntoTargetFrame;
   }
 
+  private followSpecificJump(frame: Frame, time: number, jump: Jump): [Frame, number] {
+    const targetFrame = this.compiledSong!.frames[jump.targetFrameIndex] ?? this.compiledSong!.stopFrame;
+    const targetTime = this.calculateTargetTime(frame, time, targetFrame);
+    return [targetFrame, targetTime];
+  }
+
   private selectNextJump(frame: Frame): Jump | undefined {
     for (const jump of frame.jumps) {
       switch (jump.type) {
         case "cut":
           return jump;
         case "repeat":
+          // If we are paused, repeat jumps will not be followed (also applies to seeking)
+          if (!this.playing.get()) {
+            break;
+          }
+
           // TODO: conditional
           return jump;
         case "vampExit":
+          // If we are paused, repeat jumps will not be followed (also applies to seeking)
+          if (!this.playing.get()) {
+            break;
+          }
+
           // TODO: conditional
           return jump;
         default:
@@ -183,13 +209,7 @@ export default class Transport {
     return undefined;
   }
 
-  private applySpecificJump(frame: Frame, time: number, jump: Jump): [Frame, number] {
-    const targetFrame = this.compiledSong!.frames[jump.targetFrameIndex] ?? this.compiledSong!.stopFrame;
-    const targetTime = this.calculateTargetTime(frame, time, targetFrame);
-    return [targetFrame, targetTime];
-  }
-
-  private applyJumps(frame: Frame, time: number): [Frame, number] {
+  private followJumps(frame: Frame, time: number): [Frame, number] {
     for (let i = 0; i < 100; i++) {
       // Check if there is a jump we need to follow
       const jump = this.selectNextJump(frame);
@@ -200,7 +220,7 @@ export default class Transport {
       }
 
       // If yes, apply that jump and continue following jumps from here
-      [frame, time] = this.applySpecificJump(frame, time, jump);
+      [frame, time] = this.followSpecificJump(frame, time, jump);
     }
 
     throw new EngineStateError("Jump cycle detected (maximum number of jumps reached)!");
@@ -229,7 +249,7 @@ export default class Transport {
       let nextFrame = this.compiledSong.frames[currentFrame.index + 1] ?? this.compiledSong.stopFrame;
 
       // Apply jumps for his frame
-      [nextFrame, nextTime] = this.applyJumps(nextFrame, nextTime);
+      [nextFrame, nextTime] = this.followJumps(nextFrame, nextTime);
 
       // Stop playback if we've reached the end
       if (nextTime >= this.songDuration.get()) {
