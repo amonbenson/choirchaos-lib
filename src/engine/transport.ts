@@ -1,3 +1,4 @@
+import { type Song } from "@/model/song";
 import { asNumbering, DefaultTempo, DefaultTimeSignature, type Numbering, type Tempo, type TimeSignature } from "@/music";
 import { binarySearch } from "@/utils/binarySearch";
 import { type Event, Property } from "@/utils/events";
@@ -18,15 +19,25 @@ import type Repeat from "./compiler/repeat";
 export default class Transport {
   private compiledSong: CompiledSong | undefined;
 
+  private readonly loaded = new Property(false);
   private readonly playing = new Property(false);
   private readonly songTime = new Property(0);
   private readonly songDuration = new Property(0);
   private readonly frame = new Property<Frame | undefined>(undefined);
 
+  readonly onLoadedChange: Event<boolean> = this.loaded.onChange;
   readonly onPlayingChange: Event<boolean> = this.playing.onChange;
   readonly onSongTimeChange: Event<number> = this.songTime.onChange;
   readonly onSongDurationChange: Event<number> = this.songDuration.onChange;
   readonly onFrameChange: Event<Frame | undefined> = this.frame.onChange;
+
+  getCompiledSong(): CompiledSong | undefined {
+    return this.compiledSong;
+  }
+
+  getSong(): Song | undefined {
+    return this.compiledSong?.source;
+  }
 
   isLoaded(): boolean {
     return this.compiledSong !== undefined;
@@ -78,9 +89,11 @@ export default class Transport {
     this.songDuration.set(compiledSong.duration);
     this.songTime.set(0);
     this.frame.set(compiledSong.frames[0]);
+    this.loaded.set(true);
   }
 
   unload(): void {
+    this.loaded.set(false);
     this.compiledSong = undefined;
     this.playing.set(false);
     this.songDuration.set(0);

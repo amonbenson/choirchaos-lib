@@ -11,3 +11,10 @@ export class EngineStateError extends EngineError {
     this.name = "EngineStateError";
   }
 }
+
+export class EngineAudioStateError extends EngineStateError {
+  constructor(message: string) {
+    super(message);
+    this.name = "EngineAudioStateError";
+  }
+}
