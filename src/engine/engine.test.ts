@@ -174,4 +174,74 @@ describe("Engine", () => {
       expect(onUnloaded).toHaveBeenCalledOnce();
     });
   });
+
+  describe("seek", () => {
+    it("sets the time correctly", () => {
+      const engine = new Engine();
+      engine.load(simpleSong);
+
+      engine.seek(0.5);
+      expect(engine.getSongTime()).toBeCloseTo(0.5);
+
+      engine.seek(3.5);
+      expect(engine.getSongTime()).toBeCloseTo(3.5);
+    });
+
+    it("clamps the time to the song length", () => {
+      const engine = new Engine();
+      engine.load(simpleSong);
+
+      engine.seek(4.5);
+      expect(engine.getSongTime()).toBeCloseTo(4.0);
+
+      engine.seek(-0.5);
+      expect(engine.getSongTime()).toBeCloseTo(0.0);
+    });
+
+    it("updates the current frame correctly", () => {
+      const engine = new Engine();
+      engine.load(simpleSong);
+
+      // Check transition from beat 0 to beat 1
+      engine.seek(0.4);
+      expect(engine.getCurrentFrame()?.index).toBe(0);
+
+      engine.seek(0.5);
+      expect(engine.getCurrentFrame()?.index).toBe(1);
+
+      engine.seek(0.6);
+      expect(engine.getCurrentFrame()?.index).toBe(1);
+
+      // Check end-of-song transition
+      engine.seek(3.9);
+      expect(engine.getCurrentFrame()?.index).toBe(7);
+
+      engine.seek(4.0);
+      expect(engine.getCurrentFrame()?.index).toBe(8);
+
+      engine.seek(4.1);
+      expect(engine.getCurrentFrame()?.index).toBe(8);
+
+      engine.seek(10);
+      expect(engine.getCurrentFrame()?.index).toBe(8);
+    });
+
+    it("restores the current playing value", () => {
+      const engine = new Engine();
+
+      const onPlayingChange = vi.fn();
+      engine.onPlayingChange(onPlayingChange);
+
+      engine.load(simpleSong);
+
+      engine.seek(1.0);
+      expect(engine.isPlaying()).toBe(false);
+      expect(onPlayingChange).not.toHaveBeenCalled();
+
+      engine.play(); // First call
+      engine.seek(2.0); // Second and third call
+      expect(engine.isPlaying()).toBe(true);
+      expect(onPlayingChange).toHaveBeenCalledTimes(3);
+    });
+  });
 });

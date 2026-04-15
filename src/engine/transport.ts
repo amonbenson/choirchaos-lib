@@ -117,34 +117,41 @@ export default class Transport {
     this.playing.set(false);
   }
 
-  /**
-   * Moves the playhead to the given time (in seconds), clamped to [0, duration].
-   * Binary-searches the frame list for the frame active at that time.
-   */
   seek(time: number): void {
-    const { compiledSong } = this;
-
-    if (!compiledSong) {
+    if (!this.compiledSong) {
       return;
     }
 
-    const clamped = Math.max(0, Math.min(time, compiledSong.duration));
-    const index = binarySearch(compiledSong.frames, clamped, {
+    // Skip if the time is already set
+    if (this.songTime.get() === time) {
+      return;
+    }
+
+    // Stop playing during seek
+    const wasPlaying = this.playing.get();
+    if (wasPlaying) {
+      this.pause();
+    }
+
+    // Use binary search to find the requested index
+    const clampedTime = Math.max(0, Math.min(time, this.compiledSong.duration));
+    const index = binarySearch(this.compiledSong.frames, clampedTime, {
       comparator: (t, frame) => t - frame.time,
       direction: "backward",
       inclusive: true,
       extend: true,
     });
 
-    this.frame.set(compiledSong.frames[Math.max(0, index)]);
-    this.songTime.set(clamped);
+    // Update the current frame and song time
+    this.frame.set(this.compiledSong.frames[Math.max(0, index)]);
+    this.songTime.set(clampedTime);
+
+    // Restore playback
+    if (wasPlaying) {
+      this.play();
+    }
   }
 
-  /**
-   * Advances the playhead by delta seconds.
-   * Steps through frames one by one, stopping at the end of the song.
-   * TODO: Execute jumps (cuts, counted repeats, vamps) when crossing frame boundaries.
-   */
   step(delta: number): void {
     const { compiledSong } = this;
 
@@ -158,7 +165,6 @@ export default class Transport {
       return;
     }
 
-    // Explicit type annotation so TypeScript tracks the variable as Frame through the loop.
     let frame: Frame = initial;
     let time = this.songTime.get() + delta;
 

@@ -53,11 +53,3 @@ export default class Frame {
     }
   }
 };
-
-export class FrameList extends BinarySortedList<Frame> {
-  constructor(items: Frame[] = []) {
-    super(items, {
-      comparator: (a, b) => a.time - b.time,
-    });
-  }
-}
