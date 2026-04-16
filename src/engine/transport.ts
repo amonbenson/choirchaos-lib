@@ -23,14 +23,12 @@ export default class Transport {
   private readonly loaded = new Property(false);
   private readonly playing = new Property(false);
   private readonly currentTime = new Property(0);
-  private readonly songDuration = new Property(0);
-  private readonly frame = new Property<Frame | undefined>(undefined);
+  private readonly currentFrame = new Property<Frame | undefined>(undefined);
 
   readonly onLoadedChange: Event<boolean> = this.loaded.onChange;
   readonly onPlayingChange: Event<boolean> = this.playing.onChange;
   readonly onCurrentTimeChange: Event<number> = this.currentTime.onChange;
-  readonly onSongDurationChange: Event<number> = this.songDuration.onChange;
-  readonly onFrameChange: Event<Frame | undefined> = this.frame.onChange;
+  readonly onFrameChange: Event<Frame | undefined> = this.currentFrame.onChange;
 
   getCompiledSong(): CompiledSong | undefined {
     return this.compiledSong;
@@ -53,46 +51,43 @@ export default class Transport {
   }
 
   getSongDuration(): number {
-    return this.songDuration.get();
+    return this.compiledSong?.duration ?? 0;
   }
 
   getCurrentFrame(): Frame | undefined {
-    return this.frame.get();
+    return this.currentFrame.get();
   }
 
   getCurrentTempo(): Tempo {
-    return this.frame.get()?.tempo ?? DefaultTempo;
+    return this.currentFrame.get()?.tempo ?? DefaultTempo;
   }
 
   getCurrentTimeSignature(): TimeSignature {
-    return this.frame.get()?.timeSignature ?? DefaultTimeSignature;
+    return this.currentFrame.get()?.timeSignature ?? DefaultTimeSignature;
   }
 
   getCurrentMeasureNumber(): Numbering {
-    return this.frame.get()?.measureNumber ?? asNumbering("1");
+    return this.currentFrame.get()?.measureNumber ?? asNumbering("1");
   }
 
   getCurrentMarker(): Marker | undefined {
-    return this.frame.get()?.marker;
+    return this.currentFrame.get()?.marker;
   }
 
   getCurrentRepeat(): Repeat | undefined {
-    return this.frame.get()?.repeat;
+    return this.currentFrame.get()?.repeat;
   }
 
   getCurrentCut(): Cut | undefined {
-    return this.frame.get()?.cut;
+    return this.currentFrame.get()?.cut;
   }
 
   load(compiledSong: CompiledSong): void {
     this.compiledSong = compiledSong;
     this.playing.set(false);
-    this.songDuration.set(compiledSong.duration);
 
     // Follow the jumps of the initial frame
-    const [initialFrame, initialTime] = this.followJumps(compiledSong.frames[0], 0);
-    this.frame.set(initialFrame);
-    this.currentTime.set(initialTime);
+    this.seekToFrame(compiledSong.frames[0], true);
 
     this.loaded.set(true);
   }
@@ -101,9 +96,8 @@ export default class Transport {
     this.loaded.set(false);
     this.compiledSong = undefined;
     this.playing.set(false);
-    this.songDuration.set(0);
     this.currentTime.set(0);
-    this.frame.set(undefined);
+    this.currentFrame.set(undefined);
   }
 
   play(): void {
@@ -120,47 +114,6 @@ export default class Transport {
     }
 
     this.playing.set(false);
-  }
-
-  seek(time: number): void {
-    if (!this.compiledSong) {
-      return;
-    }
-
-    // Skip if the time is already set
-    if (this.currentTime.get() === time) {
-      return;
-    }
-
-    // Stop playing during seek
-    const wasPlaying = this.playing.get();
-    if (wasPlaying) {
-      this.pause();
-    }
-
-    // Use binary search to find the requested frame
-    time = Math.max(0, Math.min(time, this.compiledSong.duration));
-    const frameIndex = binarySearch(this.compiledSong.frames, time, {
-      comparator: (t, frame) => t - frame.time,
-      direction: "backward",
-      inclusive: true,
-      extend: true,
-    });
-    let frame = this.compiledSong.frames[frameIndex] ?? this.compiledSong.stopFrame;
-
-    // Follow jumps in the target section
-    // TODO: End-of-repeats should not be followed here!
-    // TODO: The vamp/repeat state needs to be reset.
-    [frame, time] = this.followJumps(frame, time);
-
-    // Update the current frame and time
-    this.frame.set(frame);
-    this.currentTime.set(time);
-
-    // Restore playback
-    if (wasPlaying) {
-      this.play();
-    }
   }
 
   private calculateTargetTime(frame: Frame, time: number, targetFrame: Frame): number {
@@ -226,6 +179,59 @@ export default class Transport {
     throw new EngineStateError("Jump cycle detected (maximum number of jumps reached)!");
   }
 
+  private seekToFrame(frame: Frame, followJumps: boolean = false): void {
+    if (followJumps) {
+      const [adjustedFrame, adjustedTime] = this.followJumps(frame, frame.time);
+      this.currentTime.set(adjustedTime);
+      this.currentFrame.set(adjustedFrame);
+    } else {
+      this.currentTime.set(frame.time);
+      this.currentFrame.set(frame);
+    }
+  }
+
+  seek(time: number, followJumps: boolean = false): void {
+    if (!this.compiledSong) {
+      return;
+    }
+
+    // Skip if the time is already set
+    if (this.currentTime.get() === time) {
+      return;
+    }
+
+    // Stop playing during seek
+    const wasPlaying = this.playing.get();
+    if (wasPlaying) {
+      this.pause();
+    }
+
+    // Use binary search to find the requested frame
+    time = Math.max(0, Math.min(time, this.compiledSong.duration));
+    const frameIndex = binarySearch(this.compiledSong.frames, time, {
+      comparator: (t, frame) => t - frame.time,
+      direction: "backward",
+      inclusive: true,
+      extend: true,
+    });
+    let frame = this.compiledSong.frames[frameIndex] ?? this.compiledSong.stopFrame;
+
+    // Optionally follow jumps for the target frame.
+    // Quantize to the frame starting point
+    if (followJumps) {
+      [frame, time] = this.followJumps(frame, frame.time);
+    }
+
+    // Update the current frame and time
+    this.currentFrame.set(frame);
+    this.currentTime.set(time);
+
+    // Restore playback
+    if (wasPlaying) {
+      this.play();
+    }
+  }
+
   step(delta: number): void {
     if (!this.compiledSong) {
       return;
@@ -235,7 +241,7 @@ export default class Transport {
       throw new EngineStateError("Cannot call step() while paused.");
     }
 
-    const currentFrame = this.frame.get();
+    const currentFrame = this.currentFrame.get();
     if (!currentFrame) {
       return;
     }
@@ -251,14 +257,15 @@ export default class Transport {
       // Apply jumps for his frame
       [nextFrame, nextTime] = this.followJumps(nextFrame, nextTime);
 
-      // Stop playback if we've reached the end
-      if (nextTime >= this.songDuration.get()) {
-        nextTime = this.songDuration.get();
+      // Stop playback if we've reached the end of the song
+      const songDuration = this.getSongDuration();
+      if (nextTime >= songDuration) {
+        nextTime = songDuration;
         this.playing.set(false);
       }
 
       // Update the current frame
-      this.frame.set(nextFrame);
+      this.currentFrame.set(nextFrame);
     }
 
     // Update the current time

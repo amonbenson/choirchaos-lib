@@ -26,7 +26,6 @@ export default class Engine {
   readonly onReadyChange: Event<boolean> = this.ready.onChange;
   readonly onPlayingChange: Event<boolean> = this.transport.onPlayingChange;
   readonly onCurrentTimeChange: Event<number> = this.transport.onCurrentTimeChange;
-  readonly onSongDurationChange: Event<number> = this.transport.onSongDurationChange;
   readonly onFrameChange: Event<Frame | undefined> = this.transport.onFrameChange;
 
   constructor(options: { clock?: Clock; audio?: boolean } = {}) {
