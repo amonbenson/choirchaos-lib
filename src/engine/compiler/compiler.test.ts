@@ -315,7 +315,7 @@ describe("compile", () => {
     });
   });
 
-  describe.todo("counted repeats", () => {
+  describe("counted repeats", () => {
     function repeat(length: number, iterations: number): RepeatDirection {
       return { type: "repeat", length, exit: { type: "count", iterations }, safety: false };
     }
@@ -414,7 +414,7 @@ describe("compile", () => {
     });
   });
 
-  describe.todo("repeat and cut intersections", () => {
+  describe("repeat and cut intersections", () => {
     function countedRepeat(length: number): RepeatDirection {
       return { type: "repeat", length, exit: { type: "count", iterations: 2 }, safety: false };
     }
@@ -468,7 +468,7 @@ describe("compile", () => {
     });
   });
 
-  describe.todo("vamp repeats", () => {
+  describe("vamp repeats", () => {
     function vampRepeat(length: number): RepeatDirection {
       return { type: "repeat", length, exit: { type: "vamp" }, safety: false };
     }
