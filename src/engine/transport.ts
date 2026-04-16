@@ -131,6 +131,11 @@ export default class Transport {
   private adjustTime(currentFrame: Frame, currentTime: number, targetFrame: Frame): number {
     let timeIntoTargetFrame = currentTime - currentFrame.time;
 
+    if (timeIntoTargetFrame < 0) {
+      console.warn("Delta time negative! Something's fucked.");
+      timeIntoTargetFrame = 0;
+    }
+
     if (timeIntoTargetFrame >= targetFrame.duration) {
       console.warn("Delta time too large! Time stretching will occur.");
       timeIntoTargetFrame = targetFrame.duration - 0.0001;
@@ -268,6 +273,9 @@ export default class Transport {
     // Update the current frame and time
     this.setLocation(frame, time);
 
+    // Fire seek event
+    this.emitters.seek.fire({ frame, time });
+
     // Restore playback
     if (wasPlaying) {
       this.play();
@@ -283,6 +291,9 @@ export default class Transport {
 
     // Check frame-time correlation
     this.setLocation(frame, time);
+
+    // Fire seek event
+    this.emitters.seek.fire({ frame, time });
   }
 
   step(delta: number): void {
@@ -306,6 +317,9 @@ export default class Transport {
     if (nextTime >= currentFrame.time + currentFrame.duration) {
       // Get the next frame in order. Use stopFrame as a fallback if we've moved past the end of the song.
       nextFrame = this.compiledSong.frames[currentFrame.index + 1] ?? this.compiledSong.stopFrame;
+
+      // Adjust delta time. Passing in the same frame will not alter the time, except if it is out of the frame bounds.
+      nextTime = this.adjustTime(nextFrame, nextTime, nextFrame);
 
       // Apply jumps for his frame
       [nextFrame, nextTime] = this.followJumps(nextFrame, nextTime);

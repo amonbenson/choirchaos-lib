@@ -146,17 +146,39 @@ describe("Transport", () => {
     });
 
     it("restores the current playing value", () => {
-      const transport = new Transport();
-
       const onPlayingChange = vi.fn();
-      transport.onPlayingChange(onPlayingChange);
 
+      const transport = new Transport();
+      transport.onPlayingChange(onPlayingChange);
       transport.load(compiledSimpleSong);
 
       transport.play(); // First call
       transport.seek(2.0); // Second and third call
       expect(transport.isPlaying()).toBe(true);
       expect(onPlayingChange).toHaveBeenCalledTimes(3);
+    });
+
+    it("fires seek events", () => {
+      const onSeek = vi.fn();
+
+      const transport = new Transport();
+      transport.onSeek(onSeek);
+      transport.load(compiledSimpleSong);
+
+      onSeek.mockClear();
+
+      transport.play();
+      transport.step(0.4);
+      transport.step(0.2);
+
+      expect(onSeek).not.toHaveBeenCalled();
+
+      transport.seek(0.8);
+
+      expect(onSeek).toHaveBeenCalledExactlyOnceWith({
+        frame: expect.objectContaining({ index: 1 }),
+        time: 0.8,
+      });
     });
   });
 
