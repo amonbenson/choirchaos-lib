@@ -1,6 +1,6 @@
 import { type Song } from "@/model/song";
 import { type Numbering, type Tempo, type TimeSignature } from "@/music";
-import { Emitter, type Emitters, type Event, Property } from "@/utils/events";
+import { Property } from "@/utils/events";
 
 import { AudioEngine } from "./audio";
 import { type Clock, SetIntervalClock } from "./clock";

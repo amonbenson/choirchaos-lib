@@ -1,4 +1,4 @@
-import { type Frame } from "@/engine/compiler";
+import { type Location, type Region } from "@/engine/transport";
 
 import ChannelSource from "./base";
 
@@ -14,12 +14,15 @@ export default class MidiChannelSource extends ChannelSource {
     super.dispose();
   }
 
-  protected handlePlayingChange(_playing: boolean): void {
+  protected handlePlay(): void {
   }
 
-  protected handleCurrentTimeChange(_time: number): void {
+  protected handlePause(): void {
   }
 
-  protected handleFrameChange(_frame: Frame | undefined): void {
+  protected handleSeek(_location: Location): void {
+  }
+
+  protected handleRender(_region: Region): void {
   }
 };

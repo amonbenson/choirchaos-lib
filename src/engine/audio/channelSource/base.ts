@@ -1,15 +1,15 @@
 import { type CompiledSong } from "@/engine/compiler";
-import type Frame from "@/engine/compiler/frame";
 import { EngineAudioStateError } from "@/engine/errors";
 import type Transport from "@/engine/transport";
+import { type Location, type Region } from "@/engine/transport";
 import { type Song } from "@/model/song";
 import { type Disposable } from "@/utils/events";
 
 export default abstract class ChannelSource {
   listeners: {
     playingChange: Disposable;
-    currentTimeChange: Disposable;
-    frameChange: Disposable;
+    seek: Disposable;
+    render: Disposable;
   };
 
   protected song: Song;
@@ -28,9 +28,9 @@ export default abstract class ChannelSource {
     this.song = compiledSong.source;
 
     this.listeners = {
-      playingChange: transport.onPlayingChange((value: boolean) => this.handlePlayingChange(value)),
-      currentTimeChange: transport.onCurrentTimeChange((value: number) => this.handleCurrentTimeChange(value)),
-      frameChange: transport.onFrameChange((value: Frame | undefined) => this.handleFrameChange(value)),
+      playingChange: transport.onPlayingChange((playing: boolean) => playing ? this.handlePlay() : this.handlePause()),
+      seek: transport.onSeek((value: Location) => this.handleSeek(value)),
+      render: transport.onRender((value: Region) => this.handleRender(value)),
     };
   }
 
@@ -44,7 +44,8 @@ export default abstract class ChannelSource {
     }
   }
 
-  protected abstract handlePlayingChange(playing: boolean): void;
-  protected abstract handleCurrentTimeChange(time: number): void;
-  protected abstract handleFrameChange(frame: Frame | undefined): void;
+  protected abstract handlePlay(): void;
+  protected abstract handlePause(): void;
+  protected abstract handleSeek(location: Location): void;
+  protected abstract handleRender(region: Region): void;
 };

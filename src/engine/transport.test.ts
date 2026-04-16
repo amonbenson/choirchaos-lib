@@ -4,7 +4,7 @@ import { type CutDirection } from "@/model/direction";
 import { beats, measure, song } from "@/test/utils";
 
 import { compile } from "./compiler";
-import Transport, { type PlaybackRegion } from "./transport";
+import Transport, { type Region } from "./transport";
 
 const simpleSong = song(
   measure(beats(4)),
@@ -344,59 +344,59 @@ describe("Transport", () => {
       });
     });
 
-    describe("playback event", () => {
+    describe("render event", () => {
       const cut1: CutDirection = { type: "cut", length: 1 };
 
-      it("fires a single playback event during a frame", () => {
-        const onPlayback = vi.fn();
+      it("fires a single render event during a frame", () => {
+        const onRender = vi.fn();
 
         const transport = new Transport();
-        transport.onPlayback(onPlayback);
+        transport.onRender(onRender);
         transport.load(compiledSimpleSong);
 
         transport.play();
         transport.step(0.1);
 
-        expect(onPlayback).toHaveBeenCalledExactlyOnceWith({
+        expect(onRender).toHaveBeenCalledExactlyOnceWith({
           frame: expect.objectContaining({ index: 0 }),
           startTime: expect.closeTo(0.0),
           endTime: expect.closeTo(0.1),
-        } satisfies PlaybackRegion);
+        } satisfies Region);
       });
 
-      it("fires two playback events during a frame transition", () => {
-        const onPlayback = vi.fn();
+      it("fires two render events during a frame transition", () => {
+        const onRender = vi.fn();
 
         const transport = new Transport();
-        transport.onPlayback(onPlayback);
+        transport.onRender(onRender);
         transport.load(compiledSimpleSong);
 
         transport.play();
         transport.step(0.4);
 
         // Start recording function calls from here
-        onPlayback.mockClear();
+        onRender.mockClear();
 
         transport.step(0.2); // Transition from frame 0 to 1
 
-        expect(onPlayback).toHaveBeenCalledTimes(2);
-        expect(onPlayback).toHaveBeenNthCalledWith(1, {
+        expect(onRender).toHaveBeenCalledTimes(2);
+        expect(onRender).toHaveBeenNthCalledWith(1, {
           frame: expect.objectContaining({ index: 0 }),
           startTime: expect.closeTo(0.4),
           endTime: expect.closeTo(0.5),
         });
-        expect(onPlayback).toHaveBeenNthCalledWith(2, {
+        expect(onRender).toHaveBeenNthCalledWith(2, {
           frame: expect.objectContaining({ index: 1 }),
           startTime: expect.closeTo(0.5),
           endTime: expect.closeTo(0.6),
         });
       });
 
-      it("fires two playback events during a cut transition", () => {
-        const onPlayback = vi.fn();
+      it("fires two render events during a cut transition", () => {
+        const onRender = vi.fn();
 
         const transport = new Transport();
-        transport.onPlayback(onPlayback);
+        transport.onRender(onRender);
         transport.load(compile(song(
           measure(beats(4)),
           measure(beats(4), cut1),
@@ -410,17 +410,17 @@ describe("Transport", () => {
         transport.step(0.5);
 
         // Start recording function calls from here
-        onPlayback.mockClear();
+        onRender.mockClear();
 
         transport.step(0.2);
 
-        expect(onPlayback).toHaveBeenCalledTimes(2);
-        expect(onPlayback).toHaveBeenNthCalledWith(1, {
+        expect(onRender).toHaveBeenCalledTimes(2);
+        expect(onRender).toHaveBeenNthCalledWith(1, {
           frame: expect.objectContaining({ index: 3 }),
           startTime: expect.closeTo(1.9),
           endTime: expect.closeTo(2.0),
         });
-        expect(onPlayback).toHaveBeenNthCalledWith(2, {
+        expect(onRender).toHaveBeenNthCalledWith(2, {
           frame: expect.objectContaining({ index: 8 }),
           startTime: expect.closeTo(4.0),
           endTime: expect.closeTo(4.1),

@@ -16,7 +16,7 @@ export type Location = {
   time: number;
 };
 
-export type PlaybackRegion = {
+export type Region = {
   frame: Frame;
   startTime: number;
   endTime: number;
@@ -31,7 +31,7 @@ export type RepeatState = {
 export default class Transport {
   private emitters = {
     seek: new Emitter<Location>(),
-    playback: new Emitter<PlaybackRegion>(),
+    render: new Emitter<Region>(),
   } satisfies Emitters;
 
   private compiledSong: CompiledSong | undefined;
@@ -47,7 +47,7 @@ export default class Transport {
   readonly onFrameChange = this.currentFrame.onChange;
 
   readonly onSeek = this.emitters.seek.event;
-  readonly onPlayback = this.emitters.playback.event;
+  readonly onRender = this.emitters.render.event;
 
   getCompiledSong(): CompiledSong | undefined {
     return this.compiledSong;
@@ -334,10 +334,10 @@ export default class Transport {
 
     this.setLocation(nextFrame, nextTime);
 
-    // Fire playback events
+    // Fire render events
     if (currentFrame === nextFrame) {
-      // Use a single playback region inside the current frame
-      this.emitters.playback.fire({
+      // Use a single region inside the current frame
+      this.emitters.render.fire({
         frame: currentFrame,
         startTime: currentTime,
         endTime: nextTime,
@@ -346,12 +346,12 @@ export default class Transport {
       // Split into two regions:
       // - old time .. end of old frame
       // - start of new frame .. new time
-      this.emitters.playback.fire({
+      this.emitters.render.fire({
         frame: currentFrame,
         startTime: currentTime,
         endTime: currentFrame.time + currentFrame.duration,
       });
-      this.emitters.playback.fire({
+      this.emitters.render.fire({
         frame: nextFrame,
         startTime: nextFrame.time,
         endTime: nextTime,
