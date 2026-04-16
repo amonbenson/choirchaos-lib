@@ -320,15 +320,28 @@ export default class Transport {
 
     this.setLocation(nextFrame, nextTime);
 
-    // Fire playback events.
-    // If the start and end point fall onto different frames, use two separate events
+    // Fire playback events
     if (currentFrame === nextFrame) {
+      // Use a single playback region inside the current frame
       this.emitters.playback.fire({
         frame: currentFrame,
         startTime: currentTime,
         endTime: nextTime,
       });
     } else {
+      // Split into two regions:
+      // - old time .. end of old frame
+      // - start of new frame .. new time
+      this.emitters.playback.fire({
+        frame: currentFrame,
+        startTime: currentTime,
+        endTime: currentFrame.time + currentFrame.duration,
+      });
+      this.emitters.playback.fire({
+        frame: nextFrame,
+        startTime: nextFrame.time,
+        endTime: nextTime,
+      });
     }
   }
 }
