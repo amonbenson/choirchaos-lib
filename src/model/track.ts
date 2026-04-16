@@ -1,10 +1,18 @@
+export type MidiData = {
+  dummy: undefined;
+};
+
+export type AudioData = {
+  dummy: undefined;
+};
+
 export type Track = {
   group: "instrumental" | "vocal";
   name: string;
 
   data: {
-    midi?: never;
-    audio?: never;
+    midi?: MidiData;
+    audio?: AudioData;
   };
 };
 

@@ -21,9 +21,9 @@ export default class ChannelStrip {
 
     // Create channel audio sources if data is available
     if (track.data.audio) {
-      this.channelSource = new AudioChannelSource(transport, trackIndex);
+      this.channelSource = new AudioChannelSource(transport, trackIndex, track.data.audio);
     } else if (track.data.midi) {
-      this.channelSource = new MidiChannelSource(transport, trackIndex);
+      this.channelSource = new MidiChannelSource(transport, trackIndex, track.data.midi);
     } else {
       this.channelSource = undefined;
     }

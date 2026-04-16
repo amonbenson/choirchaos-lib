@@ -5,7 +5,7 @@ import { type Location, type Region } from "@/engine/transport";
 import { type Song } from "@/model/song";
 import { type Disposable } from "@/utils/events";
 
-export default abstract class ChannelSource {
+export default abstract class ChannelSource<D = unknown> {
   listeners: {
     playingChange: Disposable;
     seek: Disposable;
@@ -18,6 +18,7 @@ export default abstract class ChannelSource {
   constructor(
     protected transport: Transport,
     protected trackIndex: number,
+    protected data: D,
   ) {
     const compiledSong = transport.getCompiledSong();
     if (!compiledSong) {
