@@ -11,10 +11,9 @@ import type Marker from "./compiler/marker";
 import type Repeat from "./compiler/repeat";
 import { EngineStateError } from "./errors";
 
-export type RepeatState = {
-  currentIteration: number;
-  iterations: number;
-  exitRequested: boolean;
+export type Location = {
+  frame: Frame;
+  time: number;
 };
 
 export type PlaybackRegion = {
@@ -23,8 +22,15 @@ export type PlaybackRegion = {
   endTime: number;
 };
 
+export type RepeatState = {
+  currentIteration: number;
+  iterations: number;
+  exitRequested: boolean;
+};
+
 export default class Transport {
   private emitters = {
+    seek: new Emitter<Location>(),
     playback: new Emitter<PlaybackRegion>(),
   } satisfies Emitters;
 
@@ -39,6 +45,8 @@ export default class Transport {
   readonly onPlayingChange = this.playing.onChange;
   readonly onCurrentTimeChange = this.currentTime.onChange;
   readonly onFrameChange = this.currentFrame.onChange;
+
+  readonly onSeek = this.emitters.seek.event;
   readonly onPlayback = this.emitters.playback.event;
 
   getCompiledSong(): CompiledSong | undefined {
@@ -120,11 +128,11 @@ export default class Transport {
     }
   }
 
-  private calculateTargetTime(frame: Frame, time: number, targetFrame: Frame): number {
-    let timeIntoTargetFrame = time - frame.time;
+  private adjustTime(currentFrame: Frame, currentTime: number, targetFrame: Frame): number {
+    let timeIntoTargetFrame = currentTime - currentFrame.time;
 
     if (timeIntoTargetFrame >= targetFrame.duration) {
-      console.warn("Step size too large! Time stretching will occur.");
+      console.warn("Delta time too large! Time stretching will occur.");
       timeIntoTargetFrame = targetFrame.duration - 0.0001;
     }
 
@@ -133,7 +141,7 @@ export default class Transport {
 
   private followSpecificJump(frame: Frame, time: number, jump: Jump): [Frame, number] {
     const targetFrame = this.compiledSong!.frames[jump.targetFrameIndex] ?? this.compiledSong!.stopFrame;
-    const targetTime = this.calculateTargetTime(frame, time, targetFrame);
+    const targetTime = this.adjustTime(frame, time, targetFrame);
     return [targetFrame, targetTime];
   }
 
@@ -183,15 +191,13 @@ export default class Transport {
     throw new EngineStateError("Jump cycle detected (maximum number of jumps reached)!");
   }
 
-  private seekToFrame(frame: Frame, followJumps: boolean = false): void {
-    if (followJumps) {
-      const [adjustedFrame, adjustedTime] = this.followJumps(frame, frame.time);
-      this.currentTime.set(adjustedTime);
-      this.currentFrame.set(adjustedFrame);
-    } else {
-      this.currentTime.set(frame.time);
-      this.currentFrame.set(frame);
-    }
+  private setLocation(frame: Frame, time: number): void {
+    // Consistency-check
+    this.assertFrameContainsTime(frame, time);
+
+    // Update the properties
+    this.currentFrame.set(frame);
+    this.currentTime.set(time);
   }
 
   load(compiledSong: CompiledSong): void {
@@ -208,6 +214,7 @@ export default class Transport {
     this.loaded.set(false);
     this.compiledSong = undefined;
     this.playing.set(false);
+
     this.currentTime.set(0);
     this.currentFrame.set(undefined);
   }
@@ -258,17 +265,24 @@ export default class Transport {
       [frame, time] = this.followJumps(frame, frame.time);
     }
 
-    // Check frame-time correlation
-    this.assertFrameContainsTime(frame, time);
-
     // Update the current frame and time
-    this.currentFrame.set(frame);
-    this.currentTime.set(time);
+    this.setLocation(frame, time);
 
     // Restore playback
     if (wasPlaying) {
       this.play();
     }
+  }
+
+  private seekToFrame(frame: Frame, followJumps: boolean = false): void {
+    let time = frame.time;
+
+    if (followJumps) {
+      [frame, time] = this.followJumps(frame, time);
+    }
+
+    // Check frame-time correlation
+    this.setLocation(frame, time);
   }
 
   step(delta: number): void {
@@ -304,12 +318,7 @@ export default class Transport {
       }
     }
 
-    // Check frame-time correlation
-    this.assertFrameContainsTime(nextFrame, nextTime);
-
-    // Update the current frame and time
-    this.currentFrame.set(nextFrame);
-    this.currentTime.set(nextTime);
+    this.setLocation(nextFrame, nextTime);
 
     // Fire playback events.
     // If the start and end point fall onto different frames, use two separate events
