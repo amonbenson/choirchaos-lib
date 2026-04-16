@@ -1,6 +1,6 @@
 import { type Song } from "@/model/song";
 import { type Numbering, type Tempo, type TimeSignature } from "@/music";
-import { type Event, Property } from "@/utils/events";
+import { Emitter, type Emitters, type Event, Property } from "@/utils/events";
 
 import { AudioEngine } from "./audio";
 import { type Clock, SetIntervalClock } from "./clock";
@@ -23,10 +23,10 @@ export default class Engine {
 
   private readonly ready = new Property(false);
 
-  readonly onReadyChange: Event<boolean> = this.ready.onChange;
-  readonly onPlayingChange: Event<boolean> = this.transport.onPlayingChange;
-  readonly onCurrentTimeChange: Event<number> = this.transport.onCurrentTimeChange;
-  readonly onFrameChange: Event<Frame | undefined> = this.transport.onFrameChange;
+  readonly onReadyChange = this.ready.onChange;
+  readonly onPlayingChange = this.transport.onPlayingChange;
+  readonly onCurrentTimeChange = this.transport.onCurrentTimeChange;
+  readonly onFrameChange = this.transport.onFrameChange;
 
   constructor(options: { clock?: Clock; audio?: boolean } = {}) {
     this.clock = options.clock ?? new SetIntervalClock();
