@@ -2,6 +2,7 @@ import { type Branded } from "@/utils/brand";
 
 import type { Numbering } from "../music/numbering";
 import { type SongDirection } from "./direction";
+import { type FileContents } from "./fileContents";
 import { type Measure } from "./measure";
 import { type Track } from "./track";
 
@@ -15,6 +16,7 @@ export type Song = {
   measures: Measure[];
   directions: SongDirection[];
   tracks: Track[];
+  files: FileContents[];
 };
 
 export function createSong(id: SongId, number: SongNumber = "1" as SongNumber, title: string = ""): Song {
@@ -25,5 +27,6 @@ export function createSong(id: SongId, number: SongNumber = "1" as SongNumber, t
     measures: [],
     directions: [],
     tracks: [],
+    files: [],
   };
 }

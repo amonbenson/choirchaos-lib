@@ -1,9 +1,10 @@
 export type MidiData = {
-  dummy: undefined;
+  fileId: string;
+  channels: [];
 };
 
 export type AudioData = {
-  dummy: undefined;
+  fileId: string;
 };
 
 export type Track = {
