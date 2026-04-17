@@ -148,3 +148,6 @@ vite.config.ts.timestamp-*
 
 # macOS files
 .DS_Store
+
+# local temporary files
+/tmp/

@@ -10,11 +10,9 @@ export default class AudioEngine {
   };
 
   private audioContext = new AudioContext();
-  private mixer: Mixer;
+  private mixer?: Mixer;
 
   constructor(private transport: Transport) {
-    this.mixer = new Mixer(transport);
-
     // Register transport listeners
     this.listeners = {
       loadedChange: transport.onLoadedChange((value: boolean) => this.handleLoadedChange(value)),
@@ -25,9 +23,12 @@ export default class AudioEngine {
   private handleLoadedChange(loaded: boolean): void {
     // Update the mixer state
     if (loaded) {
-      this.mixer.setup(this.audioContext);
+      // Create a fresh mixer on song load
+      this.mixer?.dispose();
+      this.mixer = new Mixer(this.audioContext, this.transport);
     } else {
-      this.mixer.dispose();
+      // Remove the old mixer on unload
+      this.mixer?.dispose();
     }
   }
 
@@ -51,6 +52,6 @@ export default class AudioEngine {
     }
 
     // Destroy the audio mixer
-    this.mixer.dispose();
+    this.mixer?.dispose();
   }
 }

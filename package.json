@@ -9,10 +9,12 @@
     "test": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "midi-to-json": "tsx --tsconfig tsconfig.scripts.json scripts/midiToJson.ts"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^5.10.0",
+    "@types/node": "^25.6.0",
     "@vitest/coverage-v8": "^4.1.4",
     "@vitest/eslint-plugin": "^1.6.14",
     "eslint": "^10.2.0",
@@ -20,8 +22,12 @@
     "jiti": "^2.6.1",
     "node-web-audio-api": "^1.0.9",
     "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.0",
     "vitest": "^4.1.2"
+  },
+  "dependencies": {
+    "midi-file": "^1.2.4"
   }
 }

@@ -5,7 +5,7 @@ import { type Location, type Region } from "@/engine/transport";
 import { type Song } from "@/model/song";
 import { type Disposable } from "@/utils/events";
 
-export default abstract class ChannelSource<D = unknown> {
+export default abstract class ChannelSource<MediaType = unknown> {
   listeners: {
     playingChange: Disposable;
     seek: Disposable;
@@ -16,9 +16,10 @@ export default abstract class ChannelSource<D = unknown> {
   protected compiledSong: CompiledSong;
 
   constructor(
+    protected audioContext: AudioContext,
     protected transport: Transport,
     protected trackIndex: number,
-    protected data: D,
+    protected trackMedia: MediaType,
   ) {
     const compiledSong = transport.getCompiledSong();
     if (!compiledSong) {
@@ -37,7 +38,6 @@ export default abstract class ChannelSource<D = unknown> {
 
   abstract getOutputNode(): AudioNode;
 
-  abstract setup(context: AudioContext): void;
   dispose(): void {
     // Dispose all listeners
     for (const listener of Object.values(this.listeners)) {

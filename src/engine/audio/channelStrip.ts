@@ -5,9 +5,10 @@ import type ChannelSource from "./channelSource/base";
 
 export default class ChannelStrip {
   private channelSource?: ChannelSource;
-  private channelGain: GainNode | undefined;
+  private channelGain: GainNode;
 
   constructor(
+    private audioContext: AudioContext,
     private transport: Transport,
     private trackIndex: number,
   ) {
@@ -21,29 +22,20 @@ export default class ChannelStrip {
 
     // Create channel audio sources if data is available
     if (track.data.audio) {
-      this.channelSource = new AudioChannelSource(transport, trackIndex, track.data.audio);
+      this.channelSource = new AudioChannelSource(this.audioContext, transport, trackIndex, track.data.audio);
     } else if (track.data.midi) {
-      this.channelSource = new MidiChannelSource(transport, trackIndex, track.data.midi);
+      this.channelSource = new MidiChannelSource(this.audioContext, transport, trackIndex, track.data.midi);
     } else {
       this.channelSource = undefined;
     }
+
+    // Create channel gain and connect the source node
+    this.channelGain = new GainNode(this.audioContext);
+    this.channelSource?.getOutputNode().connect(this.channelGain);
   }
 
   getOutputNode(): AudioNode {
-    if (!this.channelGain) {
-      throw new EngineAudioStateError("Cannot return output node: ChannelStrip is not setup.");
-    }
-
     return this.channelGain;
-  }
-
-  setup(context: AudioContext): void {
-    this.channelGain = new GainNode(context);
-
-    if (this.channelSource) {
-      this.channelSource.setup(context);
-      this.channelSource.getOutputNode().connect(this.channelGain);
-    }
   }
 
   dispose(): void {

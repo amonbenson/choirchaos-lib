@@ -3,41 +3,29 @@ import type Transport from "../transport";
 import ChannelStrip from "./channelStrip";
 
 export default class Mixer {
-  private masterGain: GainNode | undefined;
+  private masterGain: GainNode;
   private channelStrips: ChannelStrip[];
 
-  constructor(private transport: Transport) {
-    this.channelStrips = [];
-  }
-
-  getOutputNode(): AudioNode {
-    if (!this.masterGain) {
-      throw new EngineAudioStateError("Cannot return output node: Mixer is not setup.");
-    }
-
-    return this.masterGain;
-  }
-
-  setup(context: AudioContext): void {
-    if (this.channelStrips.length > 0) {
-      throw new EngineAudioStateError("Cannot setup Mixer: Already contains channel strips. Run dispose() first.");
-    }
-
+  constructor(private audioContext: AudioContext, private transport: Transport) {
     // Lookup the song from the transport object
-    const song = this.transport.getSong();
+    const song = transport.getSong();
     if (!song) {
       throw new EngineAudioStateError("Cannot setup Mixer: No song loaded.");
     }
 
-    this.masterGain = new GainNode(context);
+    // Master output gain
+    this.masterGain = new GainNode(audioContext);
 
     // Create all channel strips and connect them to the master output gain
-    for (let trackIndex = 0; trackIndex < song.tracks.length; trackIndex++) {
-      const channelStrip = new ChannelStrip(this.transport, trackIndex);
-      channelStrip.setup(context);
+    this.channelStrips = song.tracks.map((_, trackIndex) => {
+      const channelStrip = new ChannelStrip(audioContext, this.transport, trackIndex);
       channelStrip.getOutputNode().connect(this.masterGain);
-      this.channelStrips.push(channelStrip);
-    }
+      return channelStrip;
+    });
+  }
+
+  getOutputNode(): AudioNode {
+    return this.masterGain;
   }
 
   dispose(): void {
