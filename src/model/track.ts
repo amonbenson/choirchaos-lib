@@ -1,6 +1,6 @@
 export type MidiData = {
   fileId: string;
-  channels: [];
+  channels: number[];
 };
 
 export type AudioData = {
