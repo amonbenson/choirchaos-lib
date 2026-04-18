@@ -1,5 +1,3 @@
-import { type MidiData } from "midi-file";
-
 import { EngineStateError } from "@/engine/errors";
 import type Transport from "@/engine/transport";
 import { type Location, type Region } from "@/engine/transport";

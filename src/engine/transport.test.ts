@@ -4,7 +4,7 @@ import { type CutDirection } from "@/model/direction";
 import { beats, measure, song } from "@/test/utils";
 
 import { compile } from "./compiler";
-import Transport, { type Region } from "./transport";
+import Transport, { type Location, type Region } from "./transport";
 
 const simpleSong = song(
   measure(beats(4)),
@@ -177,8 +177,9 @@ describe("Transport", () => {
 
       expect(onSeek).toHaveBeenCalledExactlyOnceWith({
         frame: expect.objectContaining({ index: 1 }),
-        time: 0.8,
-      });
+        frameProgress: expect.closeTo(3 / 5),
+        time: expect.closeTo(0.8),
+      } satisfies Location);
     });
   });
 
@@ -359,8 +360,10 @@ describe("Transport", () => {
 
         expect(onRender).toHaveBeenCalledExactlyOnceWith({
           frame: expect.objectContaining({ index: 0 }),
-          startTime: expect.closeTo(0.0),
-          endTime: expect.closeTo(0.1),
+          frameProgressStart: expect.closeTo(0.0),
+          frameProgressEnd: expect.closeTo(1 / 5),
+          timeStart: expect.closeTo(0.0),
+          timeEnd: expect.closeTo(0.1),
         } satisfies Region);
       });
 
@@ -382,14 +385,18 @@ describe("Transport", () => {
         expect(onRender).toHaveBeenCalledTimes(2);
         expect(onRender).toHaveBeenNthCalledWith(1, {
           frame: expect.objectContaining({ index: 0 }),
-          startTime: expect.closeTo(0.4),
-          endTime: expect.closeTo(0.5),
-        });
+          frameProgressStart: expect.closeTo(4 / 5),
+          frameProgressEnd: expect.closeTo(1),
+          timeStart: expect.closeTo(0.4),
+          timeEnd: expect.closeTo(0.5),
+        } satisfies Region);
         expect(onRender).toHaveBeenNthCalledWith(2, {
           frame: expect.objectContaining({ index: 1 }),
-          startTime: expect.closeTo(0.5),
-          endTime: expect.closeTo(0.6),
-        });
+          frameProgressStart: expect.closeTo(0),
+          frameProgressEnd: expect.closeTo(1 / 5),
+          timeStart: expect.closeTo(0.5),
+          timeEnd: expect.closeTo(0.6),
+        } satisfies Region);
       });
 
       it("fires two render events during a cut transition", () => {
@@ -417,14 +424,18 @@ describe("Transport", () => {
         expect(onRender).toHaveBeenCalledTimes(2);
         expect(onRender).toHaveBeenNthCalledWith(1, {
           frame: expect.objectContaining({ index: 3 }),
-          startTime: expect.closeTo(1.9),
-          endTime: expect.closeTo(2.0),
-        });
+          frameProgressStart: expect.closeTo(4 / 5),
+          frameProgressEnd: expect.closeTo(1),
+          timeStart: expect.closeTo(1.9),
+          timeEnd: expect.closeTo(2.0),
+        } satisfies Region);
         expect(onRender).toHaveBeenNthCalledWith(2, {
           frame: expect.objectContaining({ index: 8 }),
-          startTime: expect.closeTo(4.0),
-          endTime: expect.closeTo(4.1),
-        });
+          frameProgressStart: expect.closeTo(0),
+          frameProgressEnd: expect.closeTo(1 / 5),
+          timeStart: expect.closeTo(4.0),
+          timeEnd: expect.closeTo(4.1),
+        } satisfies Region);
       });
     });
   });

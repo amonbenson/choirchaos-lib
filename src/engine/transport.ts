@@ -13,13 +13,16 @@ import { EngineStateError } from "./errors";
 
 export type Location = {
   frame: Frame;
+  frameProgress: number;
   time: number;
 };
 
 export type Region = {
   frame: Frame;
-  startTime: number;
-  endTime: number;
+  frameProgressStart: number;
+  frameProgressEnd: number;
+  timeStart: number;
+  timeEnd: number;
 };
 
 export type RepeatState = {
@@ -205,6 +208,24 @@ export default class Transport {
     this.currentTime.set(time);
   }
 
+  private fireSeekEvent(frame: Frame, time: number): void {
+    this.emitters.seek.fire({
+      frame,
+      frameProgress: Math.max(0, Math.min(1, (time - frame.time) / frame.duration)),
+      time,
+    });
+  }
+
+  private fireRenderEvent(frame: Frame, timeStart: number, timeEnd: number): void {
+    this.emitters.render.fire({
+      frame,
+      frameProgressStart: Math.max(0, Math.min(1, (timeStart - frame.time) / frame.duration)),
+      frameProgressEnd: Math.max(0, Math.min(1, (timeEnd - frame.time) / frame.duration)),
+      timeStart,
+      timeEnd,
+    });
+  }
+
   load(compiledSong: CompiledSong): void {
     this.compiledSong = compiledSong;
     this.playing.set(false);
@@ -270,11 +291,9 @@ export default class Transport {
       [frame, time] = this.followJumps(frame, frame.time);
     }
 
-    // Update the current frame and time
+    // Update the current frame and time and fire a seek event
     this.setLocation(frame, time);
-
-    // Fire seek event
-    this.emitters.seek.fire({ frame, time });
+    this.fireSeekEvent(frame, time);
 
     // Restore playback
     if (wasPlaying) {
@@ -289,11 +308,9 @@ export default class Transport {
       [frame, time] = this.followJumps(frame, time);
     }
 
-    // Check frame-time correlation
+    // Update the current frame and time and fire a seek event
     this.setLocation(frame, time);
-
-    // Fire seek event
-    this.emitters.seek.fire({ frame, time });
+    this.fireSeekEvent(frame, time);
   }
 
   step(delta: number): void {
@@ -332,30 +349,19 @@ export default class Transport {
       }
     }
 
+    // Update the current frame and time
     this.setLocation(nextFrame, nextTime);
 
     // Fire render events
     if (currentFrame === nextFrame) {
       // Use a single region inside the current frame
-      this.emitters.render.fire({
-        frame: currentFrame,
-        startTime: currentTime,
-        endTime: nextTime,
-      });
+      this.fireRenderEvent(currentFrame, currentTime, nextTime);
     } else {
       // Split into two regions:
       // - old time .. end of old frame
       // - start of new frame .. new time
-      this.emitters.render.fire({
-        frame: currentFrame,
-        startTime: currentTime,
-        endTime: currentFrame.time + currentFrame.duration,
-      });
-      this.emitters.render.fire({
-        frame: nextFrame,
-        startTime: nextFrame.time,
-        endTime: nextTime,
-      });
+      this.fireRenderEvent(currentFrame, currentTime, currentFrame.time + currentFrame.duration);
+      this.fireRenderEvent(nextFrame, nextFrame.time, nextTime);
     }
   }
 }
