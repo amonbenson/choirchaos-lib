@@ -17,8 +17,14 @@ type NoteEvent = {
 };
 
 export default class MidiChannelSource extends ChannelSource<MidiMedia> {
-  warpCurve: WarpCurve;
-  notes: BinarySortedList<NoteEvent>;
+  private warpCurve: WarpCurve;
+  private notes: BinarySortedList<NoteEvent>;
+  private ticksPerBeat: number;
+
+  private locationCache: {
+    tick: number;
+    noteIndex: number;
+  } | undefined = undefined;
 
   constructor(
     audioContext: AudioContext,
@@ -29,7 +35,7 @@ export default class MidiChannelSource extends ChannelSource<MidiMedia> {
     super(audioContext, transport, trackIndex, trackMedia);
 
     // Get the midi data from the file
-    const midiFiles: MidiFileContents[] = this.compiledSong.source.files.filter(file => file.type === "mid");
+    const midiFiles: MidiFileContents[] = this.song.files.filter(file => file.type === "mid");
     const file = midiFiles.find(file => file.id === this.trackMedia.fileId && file.type === "mid");
     if (!file) {
       throw new EngineStateError(`Midi file with id ${this.trackMedia.fileId} was not found.`);
@@ -37,6 +43,9 @@ export default class MidiChannelSource extends ChannelSource<MidiMedia> {
 
     // Set the warp curve
     this.warpCurve = new WarpCurve(file.syncInfo.warpPoints);
+
+    // Set the ticks per beat
+    this.ticksPerBeat = file.midiData.header.ticksPerBeat ?? 480;
 
     // Extract all note events
     const notes: NoteEvent[] = [];
@@ -101,6 +110,9 @@ export default class MidiChannelSource extends ChannelSource<MidiMedia> {
     // Store the notes in a sorted list
     this.notes = new BinarySortedList(notes, {
       comparator: (a, b) => a.tick - b.tick,
+      direction: "backward",
+      inclusive: true,
+      extend: true,
     });
   }
 
@@ -118,9 +130,30 @@ export default class MidiChannelSource extends ChannelSource<MidiMedia> {
   protected handlePause(): void {
   }
 
-  protected handleSeek(_location: Location): void {
+  private locationToTick(frameIndex: number, frameProgress: number): number {
+    // TODO: Apply frame index warping / transformation
+    return Math.floor((frameIndex + frameProgress) * this.ticksPerBeat);
   }
 
-  protected handleRender(_region: Region): void {
+  protected handleSeek(location: Location): void {
+    const tick = this.locationToTick(location.frame.index, location.frameProgress);
+  }
+
+  protected handleRender(region: Region): void {
+    // TODO: Warping is disabled for now
+    // Apply warping to the frame index
+    // const index = Math.round(this.warpCurve.warp(region.frame.index));
+    // if (index < 0 || index >= this.compiledSong.frames.length) {
+    //   return;
+    // }
+
+    const tickStart = this.locationToTick(region.frame.index, region.frameProgressStart);
+    const tickEnd = this.locationToTick(region.frame.index, region.frameProgressEnd);
+
+    // Play all notes within that region
+    const events = this.notes.searchRange(tickStart, tickEnd);
+    for (const event of events) {
+      console.log(event);
+    }
   }
 };
